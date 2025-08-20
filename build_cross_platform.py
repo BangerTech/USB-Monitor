@@ -74,8 +74,18 @@ def build_for_platform(platform_name, icon_path=None):
     
     # Icon hinzufügen, falls vorhanden
     if icon_path and os.path.exists(icon_path):
+        # Prüfe Icon-Format und konvertiere bei Bedarf
+        icon_ext = os.path.splitext(icon_path)[1].lower()
+        if icon_ext == ".png":
+            # Für PNG-Dateien: PyInstaller kann diese direkt verwenden
+            print(f"   PNG-Icon gefunden: {icon_path}")
+        elif icon_ext == ".ico":
+            print(f"   ICO-Icon gefunden: {icon_path}")
+        elif icon_ext == ".icns":
+            print(f"   ICNS-Icon gefunden: {icon_path}")
+        
         cmd.extend(["--icon", icon_path])
-        print(f"   Icon gefunden: {icon_path}")
+        print(f"   Icon wird verwendet: {icon_path}")
     
     print(f"   Führe aus: {' '.join(cmd)}")
     
@@ -305,12 +315,24 @@ def main():
     print("🚀 Starte Cross-Platform Build...")
     print()
     
-    # Windows Build
-    windows_success = build_for_platform("Windows", "assets/icons/app_icon.ico")
+    # Windows Build (versuche verschiedene Icon-Formate)
+    windows_icon = None
+    for icon_format in ["assets/icons/app_icon.ico", "assets/icons/app_icon.png", "assets/icons/logo.png"]:
+        if os.path.exists(icon_format):
+            windows_icon = icon_format
+            break
+    
+    windows_success = build_for_platform("Windows", windows_icon)
     print()
     
     # macOS Build
-    macos_success = build_for_platform("macOS", "assets/icons/app_icon.icns")
+    macos_icon = None
+    for icon_format in ["assets/icons/app_icon.icns", "assets/icons/app_icon.png", "assets/icons/logo.png"]:
+        if os.path.exists(icon_format):
+            macos_icon = icon_format
+            break
+    
+    macos_success = build_for_platform("macOS", macos_icon)
     print()
     
     if not windows_success or not macos_success:

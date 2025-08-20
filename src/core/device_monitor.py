@@ -209,25 +209,42 @@ class DeviceMonitor:
         devices = []
         
         try:
-            if hasattr(self, 'wmi_connection') and self.wmi_connection:
-                # WMI verwenden
-                for device in self.wmi_connection.Win32_USBHub():
-                    usb_device = USBDevice(
-                        name=device.Name or "Unbekanntes USB-Gerät",
-                        description=device.Description or "",
-                        device_id=device.DeviceID or "",
-                        manufacturer=device.Manufacturer or "",
-                        connection_status=device.Status or "Unknown",
-                        is_connected=device.Status == "OK" if device.Status else False
-                    )
-                    devices.append(usb_device)
-            else:
-                # Registry-Fallback
-                devices = self._get_windows_devices_registry()
+            # PlatformUtils verwenden (mit Debug-Ausgaben)
+            raw_devices = PlatformUtils.get_usb_devices()
+            
+            print(f"   📊 DeviceMonitor: {len(raw_devices)} Geräte von PlatformUtils erhalten")
+            
+            for raw_device in raw_devices:
+                usb_device = USBDevice(
+                    name=raw_device.get("name", "Unknown USB Device"),
+                    description=raw_device.get("description", ""),
+                    device_id=raw_device.get("device_id", ""),
+                    manufacturer=raw_device.get("manufacturer", ""),
+                    product_id=raw_device.get("product_id", ""),
+                    vendor_id=raw_device.get("vendor_id", ""),
+                    serial_number=raw_device.get("serial_number", ""),
+                    device_type=raw_device.get("device_type", "USB Device"),
+                    usb_version=raw_device.get("usb_version", ""),
+                    power_consumption=raw_device.get("power_consumption", ""),
+                    max_power=raw_device.get("max_power", ""),
+                    current_required=raw_device.get("current_required", ""),
+                    current_available=raw_device.get("current_available", ""),
+                    transfer_speed=raw_device.get("transfer_speed", ""),
+                    max_transfer_speed=raw_device.get("max_transfer_speed", ""),
+                    device_class=raw_device.get("device_class", ""),
+                    device_subclass=raw_device.get("device_subclass", ""),
+                    device_protocol=raw_device.get("device_protocol", ""),
+                    is_connected=raw_device.get("is_connected", True),
+                    connection_status=raw_device.get("status", "OK")
+                )
+                devices.append(usb_device)
+                print(f"   ✅ DeviceMonitor: USB-Gerät hinzugefügt: {usb_device.name}")
                 
         except Exception as e:
             self.logger.error(f"Fehler beim Abrufen der Windows-USB-Geräte: {e}")
+            print(f"   ❌ DeviceMonitor: Fehler beim Abrufen der Windows-USB-Geräte: {e}")
             
+        print(f"   📊 DeviceMonitor: Insgesamt {len(devices)} USB-Geräte für GUI bereit")
         return devices
     
     def _get_windows_devices_registry(self) -> List[USBDevice]:

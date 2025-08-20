@@ -128,22 +128,40 @@ class MainWindow(QMainWindow):
         # Tab-Widget zum Layout hinzufügen
         main_layout.addWidget(self.tab_widget)
         
-        # Status-Label
-        status_frame = QFrame()
-        status_frame.setFrameStyle(QFrame.Shape.StyledPanel)
-        status_layout = QHBoxLayout(status_frame)
+        # Status-Bar
+        self._create_status_bar()
         
-        self.device_status_label = QLabel("USB-Geräte: 0 verbunden")
-        self.port_status_label = QLabel("COM-Ports: 0 verfügbar")
+        main_layout.addWidget(self.status_bar)
+    
+    def _create_status_bar(self) -> None:
+        """Erstellt die Status-Bar."""
+        self.status_bar = QFrame()
+        self.status_bar.setFrameStyle(QFrame.Shape.StyledPanel)
+        status_layout = QHBoxLayout(self.status_bar)
+        
+        self.device_status_label = QLabel("USB-Geräte: 0/0 verbunden")
+        self.port_status_label = QLabel("COM-Ports: 0/0 verfügbar")
         self.last_update_label = QLabel("Letzte Aktualisierung: --")
+        
+        # Automatische Aktualisierung
+        self.auto_refresh_cb = QCheckBox("Automatische Aktualisierung")
+        self.auto_refresh_cb.setChecked(self.config.get("auto_refresh", True))
+        self.auto_refresh_cb.toggled.connect(self._on_auto_refresh_changed)
+        
+        self.refresh_interval_combo = QComboBox()
+        self.refresh_interval_combo.addItems(["1", "3", "5", "10", "30", "60"])
+        self.refresh_interval_combo.setCurrentText(str(self.config.get("refresh_interval", 5)))
+        self.refresh_interval_combo.currentTextChanged.connect(self._on_refresh_interval_changed)
         
         status_layout.addWidget(self.device_status_label)
         status_layout.addStretch()
         status_layout.addWidget(self.port_status_label)
         status_layout.addStretch()
+        status_layout.addWidget(self.auto_refresh_cb)
+        status_layout.addWidget(QLabel("Intervall (Sek.):"))
+        status_layout.addWidget(self.refresh_interval_combo)
+        status_layout.addStretch()
         status_layout.addWidget(self.last_update_label)
-        
-        main_layout.addWidget(status_frame)
     
     def _create_menus(self) -> None:
         """Erstellt die Menüleiste."""
@@ -337,6 +355,23 @@ class MainWindow(QMainWindow):
             
         except Exception as e:
             print(f"Fehler beim Aktualisieren des Status: {e}")
+    
+    def _on_auto_refresh_changed(self, enabled: bool) -> None:
+        """Behandelt Änderungen der automatischen Aktualisierung."""
+        self.config.set("auto_refresh", enabled)
+        if enabled:
+            self.refresh_timer.start()
+        else:
+            self.refresh_timer.stop()
+    
+    def _on_refresh_interval_changed(self, interval: str) -> None:
+        """Behandelt Änderungen des Aktualisierungsintervalls."""
+        try:
+            interval_ms = int(interval) * 1000
+            self.config.set("refresh_interval", int(interval))
+            self.refresh_timer.setInterval(interval_ms)
+        except ValueError:
+            pass
     
     def _on_device_connected(self, device: USBDevice) -> None:
         """Wird aufgerufen, wenn ein USB-Gerät verbunden wird."""

@@ -377,19 +377,33 @@ class PortPanel(QWidget):
         self.port_table.setSortingEnabled(True)
         self.port_table.setWordWrap(False)
         
-        # Spaltenbreiten anpassen
+        # Spaltenbreiten anpassbar machen
         header = self.port_table.horizontalHeader()
         header.setStretchLastSection(False)
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Status
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # Port-Name
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Gerätename
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Beschreibung
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Baud-Rate
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Datenbits
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Stop-Bits
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # Parität
-        header.setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)  # Hersteller
-        header.setSectionResizeMode(9, QHeaderView.ResizeMode.ResizeToContents)  # Erstellt
+        header.setSectionsMovable(True)  # Spalten verschiebbar
+        
+        # Standardbreiten setzen, aber anpassbar lassen
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)  # Status
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)  # Port-Name
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)      # Gerätename (dehnt sich aus)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)  # Beschreibung
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)  # Baud-Rate
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Interactive)  # Datenbits
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Interactive)  # Stop-Bits
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.Interactive)  # Parität
+        header.setSectionResizeMode(8, QHeaderView.ResizeMode.Interactive)  # Hersteller
+        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Interactive)  # Erstellt
+        
+        # Standardbreiten setzen
+        header.resizeSection(0, 80)   # Status
+        header.resizeSection(1, 100)  # Port-Name
+        header.resizeSection(3, 150)  # Beschreibung
+        header.resizeSection(4, 80)   # Baud-Rate
+        header.resizeSection(5, 70)   # Datenbits
+        header.resizeSection(6, 70)   # Stop-Bits
+        header.resizeSection(7, 60)   # Parität
+        header.resizeSection(8, 120)  # Hersteller
+        header.resizeSection(9, 120)  # Erstellt
         
         # Zeilenhöhe
         self.port_table.verticalHeader().setDefaultSectionSize(30)

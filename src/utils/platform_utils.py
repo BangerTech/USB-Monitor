@@ -253,20 +253,90 @@ class PlatformUtils:
             import wmi
             c = wmi.WMI()
             
-            for device in c.Win32_USBHub():
-                device_info = {
-                    "name": device.Name or "Unbekannt",
-                    "description": device.Description or "",
-                    "device_id": device.DeviceID or "",
-                    "manufacturer": device.Manufacturer or "",
-                    "status": device.Status or "",
-                    "is_connected": device.Status == "OK" if device.Status else False
-                }
-                devices.append(device_info)
-                
+            # Alle USB-Geräte abrufen (nicht nur Hubs)
+            for device in c.Win32_USBControllerDevice():
+                try:
+                    # Das angeschlossene Gerät abrufen
+                    dependent = device.Dependent
+                    if dependent:
+                        device_info = {
+                            "name": dependent.Name or "Unbekannt",
+                            "description": dependent.Description or "",
+                            "device_id": dependent.DeviceID or "",
+                            "manufacturer": dependent.Manufacturer or "",
+                            "status": dependent.Status or "OK",
+                            "is_connected": True,
+                            "device_type": "USB Device",
+                            "usb_version": "USB 2.0/3.0",
+                            "product_id": "",
+                            "vendor_id": "",
+                            "serial_number": "",
+                            "driver": dependent.Name or ""
+                        }
+                        
+                        # Zusätzliche Informationen aus dem DeviceID extrahieren
+                        if dependent.DeviceID:
+                            # USB\VID_xxxx&PID_xxxx\SerialNumber
+                            parts = dependent.DeviceID.split("\\")
+                            if len(parts) >= 2:
+                                vid_pid = parts[1]
+                                if "VID_" in vid_pid and "PID_" in vid_pid:
+                                    vid_match = re.search(r"VID_([A-F0-9]{4})", vid_pid)
+                                    pid_match = re.search(r"PID_([A-F0-9]{4})", vid_pid)
+                                    if vid_match:
+                                        device_info["vendor_id"] = vid_match.group(1)
+                                    if pid_match:
+                                        device_info["product_id"] = pid_match.group(1)
+                                
+                                if len(parts) >= 3:
+                                    device_info["serial_number"] = parts[2]
+                        
+                        devices.append(device_info)
+                except Exception as e:
+                    # Einzelne Geräte überspringen, wenn Fehler auftreten
+                    continue
+                    
         except ImportError:
             # Fallback: Registry abfragen
-            pass
+            try:
+                import winreg
+                # USB-Geräte aus der Registry abrufen
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
+                                   r"SYSTEM\CurrentControlSet\Enum\USB")
+                i = 0
+                while True:
+                    try:
+                        subkey_name = winreg.EnumKey(key, i)
+                        subkey = winreg.OpenKey(key, subkey_name)
+                        
+                        try:
+                            # Gerätename und Beschreibung abrufen
+                            device_name = winreg.QueryValueEx(subkey, "DeviceDesc")[0]
+                            device_info = {
+                                "name": device_name,
+                                "description": device_name,
+                                "device_id": subkey_name,
+                                "manufacturer": "",
+                                "status": "OK",
+                                "is_connected": True,
+                                "device_type": "USB Device",
+                                "usb_version": "USB 2.0/3.0",
+                                "product_id": "",
+                                "vendor_id": "",
+                                "serial_number": "",
+                                "driver": ""
+                            }
+                            devices.append(device_info)
+                        except:
+                            pass
+                        finally:
+                            winreg.CloseKey(subkey)
+                        i += 1
+                    except WindowsError:
+                        break
+                winreg.CloseKey(key)
+            except:
+                pass
             
         return devices
     

@@ -272,19 +272,33 @@ class DevicePanel(QWidget):
         self.device_table.setSortingEnabled(True)
         self.device_table.setWordWrap(False)
         
-        # Spaltenbreiten anpassen
+        # Spaltenbreiten anpassbar machen
         header = self.device_table.horizontalHeader()
         header.setStretchLastSection(False)
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Status
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Name
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Hersteller
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Gerätetyp
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # USB-Version
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Seriennummer
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Produkt-ID
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # Vendor-ID
-        header.setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)  # Treiber
-        header.setSectionResizeMode(9, QHeaderView.ResizeMode.ResizeToContents)  # Erstmals gesehen
+        header.setSectionsMovable(True)  # Spalten verschiebbar
+        
+        # Standardbreiten setzen, aber anpassbar lassen
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)  # Status
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)      # Name (dehnt sich aus)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)  # Hersteller
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)  # Gerätetyp
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)  # USB-Version
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Interactive)  # Seriennummer
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Interactive)  # Produkt-ID
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.Interactive)  # Vendor-ID
+        header.setSectionResizeMode(8, QHeaderView.ResizeMode.Interactive)  # Treiber
+        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Interactive)  # Erstmals gesehen
+        
+        # Standardbreiten setzen
+        header.resizeSection(0, 80)   # Status
+        header.resizeSection(2, 120)  # Hersteller
+        header.resizeSection(3, 100)  # Gerätetyp
+        header.resizeSection(4, 100)  # USB-Version
+        header.resizeSection(5, 120)  # Seriennummer
+        header.resizeSection(6, 80)   # Produkt-ID
+        header.resizeSection(7, 80)   # Vendor-ID
+        header.resizeSection(8, 100)  # Treiber
+        header.resizeSection(9, 120)  # Erstmals gesehen
         
         # Zeilenhöhe
         self.device_table.verticalHeader().setDefaultSectionSize(30)

@@ -271,7 +271,17 @@ class PlatformUtils:
                             "product_id": "",
                             "vendor_id": "",
                             "serial_number": "",
-                            "driver": dependent.Name or ""
+                            "driver": dependent.Name or "",
+                            # Erweiterte Informationen (Windows-spezifisch)
+                            "power_consumption": "Standard",
+                            "max_power": "500 mA",
+                            "current_required": "Unknown",
+                            "current_available": "500 mA",
+                            "transfer_speed": "Unknown",
+                            "max_transfer_speed": "480 Mb/s",
+                            "device_class": "Unknown",
+                            "device_subclass": "",
+                            "device_protocol": ""
                         }
                         
                         # Zusätzliche Informationen aus dem DeviceID extrahieren
@@ -394,8 +404,15 @@ class PlatformUtils:
                                         device_name = candidate_name
                                         break
                         
-                        # Schaue nach unten nach weiteren Informationen (5-10 Zeilen)
-                        for k in range(j+1, min(len(lines), j+10)):
+                        # Schaue nach unten nach weiteren Informationen (5-15 Zeilen für erweiterte Infos)
+                        max_power = ""
+                        current_required = ""
+                        current_available = ""
+                        transfer_speed = ""
+                        max_transfer_speed = ""
+                        device_class = ""
+                        
+                        for k in range(j+1, min(len(lines), j+15)):
                             line_content = lines[k].strip()
                             if line_content.startswith("Manufacturer:"):
                                 manufacturer = line_content.split(":", 1)[1].strip()
@@ -405,6 +422,8 @@ class PlatformUtils:
                                 serial_number = line_content.split(":", 1)[1].strip()
                             elif line_content.startswith("Speed:"):
                                 speed = line_content.split(":", 1)[1].strip()
+                                transfer_speed = speed
+                                max_transfer_speed = speed
                                 # USB-Version aus Speed ableiten
                                 if "5 Gb/s" in speed or "10 Gb/s" in speed:
                                     usb_version = f"USB 3.x ({speed})"
@@ -414,6 +433,14 @@ class PlatformUtils:
                                     usb_version = f"USB 1.x ({speed})"
                                 else:
                                     usb_version = f"USB ({speed})"
+                            elif line_content.startswith("Current Available:"):
+                                current_available = line_content.split(":", 1)[1].strip()
+                            elif line_content.startswith("Current Required:"):
+                                current_required = line_content.split(":", 1)[1].strip()
+                            elif line_content.startswith("Extra Operating Current:"):
+                                max_power = line_content.split(":", 1)[1].strip()
+                            elif line_content.startswith("Device Class:"):
+                                device_class = line_content.split(":", 1)[1].strip()
                         break
                 
                 # Gerätetyp aus Namen ableiten
@@ -437,6 +464,18 @@ class PlatformUtils:
                 elif "composite" in device_name.lower():
                     device_type = "Composite Device"
                 
+                # Stromverbrauch berechnen
+                power_consumption = ""
+                if current_required and current_available:
+                    try:
+                        required_ma = int(current_required.replace(" mA", ""))
+                        available_ma = int(current_available.replace(" mA", ""))
+                        power_consumption = f"{required_ma} mA / {available_ma} mA"
+                    except:
+                        power_consumption = f"{current_required} / {current_available}"
+                elif current_required:
+                    power_consumption = current_required
+                
                 device = {
                     "name": device_name,
                     "description": device_name,
@@ -449,7 +488,17 @@ class PlatformUtils:
                     "product_id": product_id,
                     "vendor_id": vendor_id,
                     "serial_number": serial_number,
-                    "driver": "macOS"
+                    "driver": "macOS",
+                    # Erweiterte Informationen
+                    "power_consumption": power_consumption,
+                    "max_power": max_power,
+                    "current_required": current_required,
+                    "current_available": current_available,
+                    "transfer_speed": transfer_speed,
+                    "max_transfer_speed": max_transfer_speed,
+                    "device_class": device_class,
+                    "device_subclass": "",
+                    "device_protocol": ""
                 }
                 devices.append(device)
                 

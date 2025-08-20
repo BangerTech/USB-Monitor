@@ -1,15 +1,40 @@
-# USB-Monitor
-
-Ein modernes, plattformübergreifendes Programm zur Überwachung und Verwaltung von USB-Geräten und COM-Ports.
+<div align="center">
+  <img src="assets/icons/logo.png" alt="USB-Monitor Logo" width="200">
+  <h1>🔌 USB-Monitor</h1>
+  <p>Ein modernes, plattformübergreifendes Programm zur Überwachung und Verwaltung von USB-Geräten und COM-Ports.</p>
+</div>
 
 ## 🚀 Features
 
-- **USB-Geräte-Erkennung**: Automatische Erkennung aller angeschlossenen USB-Geräte
-- **COM-Port-Überwachung**: Auflistung aller verfügbaren seriellen Ports
-- **Echtzeit-Überwachung**: Kontinuierliche Überwachung von Verbindungsänderungen
-- **Detaillierte Informationen**: Treiber, Geschwindigkeit, Hersteller, Produkt-ID, etc.
-- **Moderne Benutzeroberfläche**: Elegantes Design im macOS-Stil
-- **Plattformübergreifend**: Läuft auf Windows und macOS
+### 🔌 USB-Geräte-Überwachung
+- **Automatische Erkennung**: Alle angeschlossenen USB-Geräte in Echtzeit
+- **Erweiterte Informationen**: Stromverbrauch, Übertragungsgeschwindigkeit, USB-Version
+- **Gerätetyp-Erkennung**: Intelligente Kategorisierung (Tastatur, Maus, Storage, etc.)
+- **Kabel-Qualitätsbewertung**: Effizienz-Analyse basierend auf theoretischer vs. tatsächlicher Geschwindigkeit
+
+### ⚡ USB-Geschwindigkeitstests
+- **🚀 Speed-Test-Engine**: Echte Write/Read-Tests für USB-Storage-Geräte
+- **Kabel-Diagnose**: Erkennt schlechte USB-Kabel durch Effizienz-Messung
+- **Performance-Rating**: Automatische Bewertung der USB-Geschwindigkeit
+- **Detaillierte Ergebnisse**: Schreib-/Lesegeschwindigkeit mit Optimierungstipps
+
+### 📊 COM-Port-Management
+- **Port-Überwachung**: Auflistung aller verfügbaren seriellen Ports
+- **Verbindungsstatus**: Echtzeit-Überwachung von Port-Änderungen
+- **Detaillierte Port-Informationen**: Baudrate, Hersteller, Gerätezuordnung
+
+### 🎨 Moderne Benutzeroberfläche
+- **Dark/Light Theme**: Automatisch oder manuell wählbar
+- **Native Icons**: Plattformspezifische System-Icons
+- **Sortierung & Gruppierung**: Flexible Tabellen-Organisation
+- **Resizable Spalten**: Anpassbare Tabellenbreiten
+- **macOS-Style Design**: Elegante, moderne Oberfläche
+
+### 🔧 Erweiterte Funktionen
+- **Plattformübergreifend**: Windows, macOS und Linux Support
+- **Export-Funktionen**: JSON-Export aller Geräte- und Port-Daten
+- **Echtzeit-Updates**: Kontinuierliche Überwachung von Änderungen
+- **Suchfunktion**: Schnelles Finden von Geräten nach Name, Hersteller, etc.
 
 ## 📋 Voraussetzungen
 

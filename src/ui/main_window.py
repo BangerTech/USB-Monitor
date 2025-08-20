@@ -3,6 +3,7 @@ Hauptfenster für USB-Monitor.
 """
 
 import sys
+import os
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -21,6 +22,7 @@ from utils.platform_utils import PlatformUtils
 from ui.styles import Styles
 from ui.device_panel import DevicePanel
 from ui.port_panel import PortPanel
+from ui.icons import get_icon
 
 
 class MainWindow(QMainWindow):
@@ -73,13 +75,23 @@ class MainWindow(QMainWindow):
         # Status-Timer starten
         self.status_timer.start(5000)  # Alle 5 Sekunden aktualisieren
         
+        # Theme anwenden
+        self._apply_theme()
+        
         # Fenster-Einstellungen wiederherstellen
         self._restore_window_state()
     
     def _setup_window(self) -> None:
         """Konfiguriert das Hauptfenster."""
         self.setWindowTitle("USB-Monitor")
-        self.setWindowIcon(QIcon("assets/icons/app_icon.png"))
+        
+        # App-Icon setzen (falls vorhanden)
+        icon_path = "assets/icons/app_icon.png"
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        else:
+            # Fallback: System-Icon verwenden
+            self.setWindowIcon(get_icon("usb"))
         
         # Fenstergröße und Position
         window_width = self.config.get("window_width", 1200)
@@ -142,6 +154,18 @@ class MainWindow(QMainWindow):
         self.port_status_label = QLabel("COM-Ports: 0/0 verfügbar")
         self.last_update_label = QLabel("Letzte Aktualisierung: --")
         
+        # Theme-Toggle
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["🌙 Dark", "☀️ Light", "🔄 Auto"])
+        current_theme = Styles.get_current_theme()
+        if current_theme == "dark":
+            self.theme_combo.setCurrentIndex(0)
+        elif current_theme == "light":
+            self.theme_combo.setCurrentIndex(1)
+        else:
+            self.theme_combo.setCurrentIndex(2)
+        self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
+        
         # Automatische Aktualisierung
         self.auto_refresh_cb = QCheckBox("Automatische Aktualisierung")
         self.auto_refresh_cb.setChecked(self.config.get("auto_refresh", True))
@@ -155,6 +179,9 @@ class MainWindow(QMainWindow):
         status_layout.addWidget(self.device_status_label)
         status_layout.addStretch()
         status_layout.addWidget(self.port_status_label)
+        status_layout.addStretch()
+        status_layout.addWidget(QLabel("Theme:"))
+        status_layout.addWidget(self.theme_combo)
         status_layout.addStretch()
         status_layout.addWidget(self.auto_refresh_cb)
         status_layout.addWidget(QLabel("Intervall (Sek.):"))
@@ -171,11 +198,13 @@ class MainWindow(QMainWindow):
         
         # Export-Aktionen
         export_devices_action = QAction("USB-Geräte &exportieren...", self)
+        export_devices_action.setIcon(get_icon("export"))
         export_devices_action.setShortcut(QKeySequence.StandardKey.Save)
         export_devices_action.triggered.connect(self._export_devices)
         file_menu.addAction(export_devices_action)
         
         export_ports_action = QAction("COM-Ports &exportieren...", self)
+        export_ports_action.setIcon(get_icon("export"))
         export_ports_action.triggered.connect(self._export_ports)
         file_menu.addAction(export_ports_action)
         
@@ -192,6 +221,7 @@ class MainWindow(QMainWindow):
         
         # Aktualisieren
         refresh_action = QAction("&Aktualisieren", self)
+        refresh_action.setIcon(get_icon("refresh"))
         refresh_action.setShortcut(QKeySequence.StandardKey.Refresh)
         refresh_action.triggered.connect(self._refresh_all)
         edit_menu.addAction(refresh_action)
@@ -200,6 +230,7 @@ class MainWindow(QMainWindow):
         
         # Einstellungen
         settings_action = QAction("&Einstellungen...", self)
+        settings_action.setIcon(get_icon("settings"))
         settings_action.setShortcut(QKeySequence("Ctrl+,"))
         settings_action.triggered.connect(self._show_settings)
         edit_menu.addAction(settings_action)
@@ -337,6 +368,32 @@ class MainWindow(QMainWindow):
             self.refresh_timer.setInterval(interval_ms)
         except ValueError:
             pass
+    
+    def _on_theme_changed(self, theme_text: str) -> None:
+        """Wird aufgerufen, wenn sich das Theme ändert."""
+        # Theme aus Text extrahieren
+        if "Dark" in theme_text:
+            theme = "dark"
+        elif "Light" in theme_text:
+            theme = "light"
+        else:
+            theme = "auto"
+        
+        # Theme speichern und anwenden
+        Styles.set_theme(theme)
+        self._apply_theme()
+    
+    def _apply_theme(self) -> None:
+        """Wendet das aktuelle Theme auf die gesamte Anwendung an."""
+        stylesheet = Styles.get_main_stylesheet()
+        self.setStyleSheet(stylesheet)
+        
+        # Theme auch auf alle Child-Widgets anwenden
+        for widget in self.findChildren(QWidget):
+            widget.setStyleSheet("")  # Reset
+        
+        # Hauptstylesheet erneut anwenden
+        QApplication.instance().setStyleSheet(stylesheet)
     
     def _on_device_connected(self, device: USBDevice) -> None:
         """Wird aufgerufen, wenn ein USB-Gerät verbunden wird."""

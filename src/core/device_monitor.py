@@ -29,7 +29,15 @@ class USBDevice:
     device_type: str = ""
     usb_version: str = ""
     power_consumption: str = ""
+    max_power: str = ""
+    current_required: str = ""
+    current_available: str = ""
+    transfer_speed: str = ""
+    max_transfer_speed: str = ""
     driver_version: str = ""
+    device_class: str = ""
+    device_subclass: str = ""
+    device_protocol: str = ""
     
     # Status-Informationen
     is_connected: bool = True
@@ -60,7 +68,15 @@ class USBDevice:
             "device_type": self.device_type,
             "usb_version": self.usb_version,
             "power_consumption": self.power_consumption,
+            "max_power": self.max_power,
+            "current_required": self.current_required,
+            "current_available": self.current_available,
+            "transfer_speed": self.transfer_speed,
+            "max_transfer_speed": self.max_transfer_speed,
             "driver_version": self.driver_version,
+            "device_class": self.device_class,
+            "device_subclass": self.device_subclass,
+            "device_protocol": self.device_protocol,
             "is_connected": self.is_connected,
             "connection_status": self.connection_status,
             "port_number": self.port_number,
@@ -267,6 +283,15 @@ class DeviceMonitor:
                     serial_number=raw_device.get("serial_number", ""),
                     device_type=raw_device.get("device_type", "USB Device"),
                     usb_version=raw_device.get("usb_version", ""),
+                    power_consumption=raw_device.get("power_consumption", ""),
+                    max_power=raw_device.get("max_power", ""),
+                    current_required=raw_device.get("current_required", ""),
+                    current_available=raw_device.get("current_available", ""),
+                    transfer_speed=raw_device.get("transfer_speed", ""),
+                    max_transfer_speed=raw_device.get("max_transfer_speed", ""),
+                    device_class=raw_device.get("device_class", ""),
+                    device_subclass=raw_device.get("device_subclass", ""),
+                    device_protocol=raw_device.get("device_protocol", ""),
                     is_connected=raw_device.get("is_connected", True)
                 )
                 devices.append(usb_device)

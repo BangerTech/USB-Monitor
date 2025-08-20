@@ -3,10 +3,50 @@ CSS-Styles für die USB-Monitor Benutzeroberfläche.
 """
 
 from typing import Dict, Any
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QSettings
 
 
 class Styles:
     """CSS-Styles für die moderne macOS-ähnliche Benutzeroberfläche."""
+    
+    @staticmethod
+    def get_current_theme() -> str:
+        """Ermittelt das aktuelle Theme (dark/light/auto)."""
+        settings = QSettings()
+        return settings.value("theme", "auto")
+    
+    @staticmethod
+    def set_theme(theme: str) -> None:
+        """Setzt das Theme (dark/light/auto)."""
+        settings = QSettings()
+        settings.setValue("theme", theme)
+    
+    @staticmethod
+    def is_dark_theme() -> bool:
+        """Prüft, ob Dark Theme aktiv ist."""
+        theme = Styles.get_current_theme()
+        if theme == "dark":
+            return True
+        elif theme == "light":
+            return False
+        else:  # auto
+            # System-Theme erkennen
+            app = QApplication.instance()
+            if app:
+                palette = app.palette()
+                # Wenn Hintergrund dunkler als Text ist, dann Dark Theme
+                bg_color = palette.color(palette.ColorRole.Window)
+                return bg_color.lightness() < 128
+            return False
+    
+    @staticmethod
+    def get_main_stylesheet() -> str:
+        """Gibt das Haupt-Stylesheet zurück."""
+        if Styles.is_dark_theme():
+            return Styles.get_dark_theme()
+        else:
+            return Styles.get_light_theme()
     
     @staticmethod
     def get_dark_theme() -> str:

@@ -251,60 +251,134 @@ class PlatformUtils:
         
         try:
             import wmi
-            c = wmi.WMI()
+            import pythoncom
             
-            # Alle USB-Geräte abrufen (nicht nur Hubs)
-            for device in c.Win32_USBControllerDevice():
-                try:
-                    # Das angeschlossene Gerät abrufen
-                    dependent = device.Dependent
-                    if dependent:
-                        device_info = {
-                            "name": dependent.Name or "Unbekannt",
-                            "description": dependent.Description or "",
-                            "device_id": dependent.DeviceID or "",
-                            "manufacturer": dependent.Manufacturer or "",
-                            "status": dependent.Status or "OK",
-                            "is_connected": True,
-                            "device_type": "USB Device",
-                            "usb_version": "USB 2.0/3.0",
-                            "product_id": "",
-                            "vendor_id": "",
-                            "serial_number": "",
-                            "driver": dependent.Name or "",
-                            # Erweiterte Informationen (Windows-spezifisch)
-                            "power_consumption": "Standard",
-                            "max_power": "500 mA",
-                            "current_required": "Unknown",
-                            "current_available": "500 mA",
-                            "transfer_speed": "Unknown",
-                            "max_transfer_speed": "480 Mb/s",
-                            "device_class": "Unknown",
-                            "device_subclass": "",
-                            "device_protocol": ""
-                        }
-                        
-                        # Zusätzliche Informationen aus dem DeviceID extrahieren
-                        if dependent.DeviceID:
-                            # USB\VID_xxxx&PID_xxxx\SerialNumber
-                            parts = dependent.DeviceID.split("\\")
-                            if len(parts) >= 2:
-                                vid_pid = parts[1]
-                                if "VID_" in vid_pid and "PID_" in vid_pid:
-                                    vid_match = re.search(r"VID_([A-F0-9]{4})", vid_pid)
-                                    pid_match = re.search(r"PID_([A-F0-9]{4})", vid_pid)
-                                    if vid_match:
-                                        device_info["vendor_id"] = vid_match.group(1)
-                                    if pid_match:
-                                        device_info["product_id"] = pid_match.group(1)
+            # COM initialisieren
+            pythoncom.CoInitialize()
+            
+            try:
+                c = wmi.WMI()
+                
+                # Methode 1: Win32_USBControllerDevice (ursprüngliche Methode)
+                for device in c.Win32_USBControllerDevice():
+                    try:
+                        # Das angeschlossene Gerät abrufen
+                        dependent = device.Dependent
+                        if dependent:
+                            device_info = {
+                                "name": dependent.Name or "Unbekannt",
+                                "description": dependent.Description or "",
+                                "device_id": dependent.DeviceID or "",
+                                "manufacturer": dependent.Manufacturer or "",
+                                "status": dependent.Status or "OK",
+                                "is_connected": True,
+                                "device_type": "USB Device",
+                                "usb_version": "USB 2.0/3.0",
+                                "product_id": "",
+                                "vendor_id": "",
+                                "serial_number": "",
+                                "driver": dependent.Name or "",
+                                # Erweiterte Informationen (Windows-spezifisch)
+                                "power_consumption": "Standard",
+                                "max_power": "500 mA",
+                                "current_required": "Unknown",
+                                "current_available": "500 mA",
+                                "transfer_speed": "Unknown",
+                                "max_transfer_speed": "480 Mb/s",
+                                "device_class": "Unknown",
+                                "device_subclass": "",
+                                "device_protocol": ""
+                            }
+                            
+                            # Zusätzliche Informationen aus dem DeviceID extrahieren
+                            if dependent.DeviceID:
+                                # USB\VID_xxxx&PID_xxxx\SerialNumber
+                                parts = dependent.DeviceID.split("\\")
+                                if len(parts) >= 2:
+                                    vid_pid = parts[1]
+                                    if "VID_" in vid_pid and "PID_" in vid_pid:
+                                        vid_match = re.search(r"VID_([A-F0-9]{4})", vid_pid)
+                                        pid_match = re.search(r"PID_([A-F0-9]{4})", vid_pid)
+                                        if vid_match:
+                                            device_info["vendor_id"] = vid_match.group(1)
+                                        if pid_match:
+                                            device_info["product_id"] = pid_match.group(1)
+                                    
+                                    if len(parts) >= 3:
+                                        device_info["serial_number"] = parts[2]
+                            
+                            devices.append(device_info)
+                    except Exception as e:
+                        # Einzelne Geräte überspringen, wenn Fehler auftreten
+                        continue
+                
+                # Methode 2: Win32_PnPEntity für zusätzliche USB-Geräte
+                for device in c.Win32_PnPEntity():
+                    try:
+                        if device.DeviceID and "USB" in device.DeviceID:
+                            # Prüfe, ob das Gerät bereits hinzugefügt wurde
+                            if not any(d["device_id"] == device.DeviceID for d in devices):
+                                device_info = {
+                                    "name": device.Name or "USB Device",
+                                    "description": device.Description or "",
+                                    "device_id": device.DeviceID or "",
+                                    "manufacturer": device.Manufacturer or "Unknown",
+                                    "status": device.Status or "OK",
+                                    "is_connected": True,
+                                    "device_type": "USB Device",
+                                    "usb_version": "USB 2.0/3.0",
+                                    "product_id": "",
+                                    "vendor_id": "",
+                                    "serial_number": "",
+                                    "driver": device.Name or "",
+                                    "power_consumption": "Standard",
+                                    "max_power": "500 mA",
+                                    "current_required": "Unknown",
+                                    "current_available": "500 mA",
+                                    "transfer_speed": "Unknown",
+                                    "max_transfer_speed": "480 Mb/s",
+                                    "device_class": "Unknown",
+                                    "device_subclass": "",
+                                    "device_protocol": ""
+                                }
                                 
-                                if len(parts) >= 3:
-                                    device_info["serial_number"] = parts[2]
+                                # VID/PID aus DeviceID extrahieren
+                                if device.DeviceID:
+                                    parts = device.DeviceID.split("\\")
+                                    if len(parts) >= 2:
+                                        vid_pid = parts[1]
+                                        if "VID_" in vid_pid and "PID_" in vid_pid:
+                                            vid_match = re.search(r"VID_([A-F0-9]{4})", vid_pid)
+                                            pid_match = re.search(r"PID_([A-F0-9]{4})", vid_pid)
+                                            if vid_match:
+                                                device_info["vendor_id"] = vid_match.group(1)
+                                            if pid_match:
+                                                device_info["product_id"] = pid_match.group(1)
+                                        
+                                        if len(parts) >= 3:
+                                            device_info["serial_number"] = parts[2]
+                                
+                                # Gerätetyp bestimmen
+                                device_name_lower = device.Name.lower() if device.Name else ""
+                                if "keyboard" in device_name_lower:
+                                    device_info["device_type"] = "Keyboard"
+                                elif "mouse" in device_name_lower:
+                                    device_info["device_type"] = "Mouse"
+                                elif "audio" in device_name_lower or "speaker" in device_name_lower:
+                                    device_info["device_type"] = "Audio Device"
+                                elif "storage" in device_name_lower or "disk" in device_name_lower:
+                                    device_info["device_type"] = "Storage"
+                                elif "hub" in device_name_lower:
+                                    device_info["device_type"] = "USB Hub"
+                                elif "controller" in device_name_lower:
+                                    device_info["device_type"] = "Controller"
+                                
+                                devices.append(device_info)
+                    except Exception as e:
+                        continue
                         
-                        devices.append(device_info)
-                except Exception as e:
-                    # Einzelne Geräte überspringen, wenn Fehler auftreten
-                    continue
+            finally:
+                pythoncom.CoUninitialize()
                     
         except ImportError:
             # Fallback: Registry abfragen

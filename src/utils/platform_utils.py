@@ -288,6 +288,16 @@ class PlatformUtils:
             elif not device_id:  # Geräte ohne ID trotzdem hinzufügen
                 unique_devices.append(device)
         
+        # Zusätzlich: USB-Controller-Informationen sammeln für bessere Geschwindigkeitserkennung
+        controller_info = PlatformUtils._get_usb_controller_info()
+        debug_info(f"USB-Controller gefunden: {controller_info}")
+        
+        # USB-Versionen basierend auf Controller-Info korrigieren
+        for device in unique_devices:
+            device_corrected = PlatformUtils._correct_usb_version_by_controller(device, controller_info)
+            if device_corrected:
+                device.update(device_corrected)
+        
         debug_info(f"📊 Insgesamt {len(unique_devices)} eindeutige USB-Geräte gefunden")
         return unique_devices
     
@@ -631,7 +641,7 @@ class PlatformUtils:
                                         device_type = PlatformUtils._determine_device_type(device_name, registry_path)
                                         
                                         # USB-Geschwindigkeit und erweiterte Informationen ermitteln
-                                        usb_info = PlatformUtils._get_enhanced_usb_info(device_key_name, vendor_id, product_id)
+                                        usb_info = PlatformUtils._get_enhanced_usb_info(device_key_name, vendor_id, product_id, instance_key)
                                         
                                         device_info = {
                                             "name": device_name,
@@ -771,29 +781,125 @@ class PlatformUtils:
             return "USB Device"
     
     @staticmethod
-    def _get_enhanced_usb_info(device_key: str, vendor_id: str, product_id: str) -> Dict[str, str]:
+    def _get_enhanced_usb_info(device_key: str, vendor_id: str, product_id: str, registry_key=None) -> Dict[str, str]:
         """Ermittelt erweiterte USB-Informationen."""
         info = {}
         
         try:
-            # USB-Geschwindigkeit basierend auf Device-Key ermitteln
-            if "USB30" in device_key.upper() or "XHCI" in device_key.upper():
-                info["usb_version"] = "USB 3.0"
-                info["max_transfer_speed"] = "5 Gb/s"
-                info["transfer_speed"] = "SuperSpeed"
-            elif "USB20" in device_key.upper() or "EHCI" in device_key.upper():
-                info["usb_version"] = "USB 2.0"
-                info["max_transfer_speed"] = "480 Mb/s"
-                info["transfer_speed"] = "High Speed"
-            elif "USB11" in device_key.upper() or "UHCI" in device_key.upper() or "OHCI" in device_key.upper():
-                info["usb_version"] = "USB 1.1"
-                info["max_transfer_speed"] = "12 Mb/s"
-                info["transfer_speed"] = "Full Speed"
-            else:
-                # Standard-Annahme basierend auf aktuellen Standards
-                info["usb_version"] = "USB 2.0"
-                info["max_transfer_speed"] = "480 Mb/s"
-                info["transfer_speed"] = "High Speed"
+            import winreg
+            
+            # Zuerst versuchen, USB-Version aus Registry zu lesen
+            usb_version_detected = False
+            
+            if registry_key:
+                try:
+                    # Versuche verschiedene Registry-Werte zu lesen
+                    registry_values_to_check = [
+                        "DeviceDesc",
+                        "FriendlyName", 
+                        "Service",
+                        "Class",
+                        "ConfigFlags"
+                    ]
+                    
+                    for value_name in registry_values_to_check:
+                        try:
+                            value_data = winreg.QueryValueEx(registry_key, value_name)[0]
+                            if isinstance(value_data, str):
+                                value_upper = value_data.upper()
+                                
+                                # USB 3.0/3.1 Indikatoren
+                                if any(indicator in value_upper for indicator in [
+                                    "USB 3.0", "USB3.0", "USB30", "SUPERSPEED", "XHCI", 
+                                    "USB 3.1", "USB31", "SUPERSPEED+"
+                                ]):
+                                    if "USB 3.1" in value_upper or "USB31" in value_upper:
+                                        info["usb_version"] = "USB 3.1"
+                                        info["max_transfer_speed"] = "10 Gb/s"
+                                        info["transfer_speed"] = "SuperSpeed+"
+                                    else:
+                                        info["usb_version"] = "USB 3.0"
+                                        info["max_transfer_speed"] = "5 Gb/s"
+                                        info["transfer_speed"] = "SuperSpeed"
+                                    usb_version_detected = True
+                                    debug_info(f"USB 3.x erkannt über Registry-Wert {value_name}: {value_data}")
+                                    break
+                                
+                                # USB 2.0 Indikatoren
+                                elif any(indicator in value_upper for indicator in [
+                                    "USB 2.0", "USB20", "HIGH SPEED", "EHCI"
+                                ]):
+                                    info["usb_version"] = "USB 2.0"
+                                    info["max_transfer_speed"] = "480 Mb/s"
+                                    info["transfer_speed"] = "High Speed"
+                                    usb_version_detected = True
+                                    debug_info(f"USB 2.0 erkannt über Registry-Wert {value_name}: {value_data}")
+                                    break
+                        except:
+                            continue
+                    
+                    # Zusätzlich: Parent-Key prüfen für Controller-Informationen
+                    if not usb_version_detected:
+                        try:
+                            # Prüfe auf XHCI (USB 3.0) oder EHCI (USB 2.0) Controller
+                            parent_path = registry_key.name.rsplit('\\', 2)[0]  # Gehe zwei Ebenen hoch
+                            parent_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, parent_path.replace("HKEY_LOCAL_MACHINE\\", ""))
+                            
+                            # Durchsuche alle Subkeys nach Controller-Informationen
+                            i = 0
+                            while True:
+                                try:
+                                    subkey_name = winreg.EnumKey(parent_key, i)
+                                    if any(controller in subkey_name.upper() for controller in ["XHCI", "USB30"]):
+                                        info["usb_version"] = "USB 3.0"
+                                        info["max_transfer_speed"] = "5 Gb/s"
+                                        info["transfer_speed"] = "SuperSpeed"
+                                        usb_version_detected = True
+                                        debug_info(f"USB 3.0 erkannt über Controller: {subkey_name}")
+                                        break
+                                    elif any(controller in subkey_name.upper() for controller in ["EHCI", "USB20"]):
+                                        info["usb_version"] = "USB 2.0"
+                                        info["max_transfer_speed"] = "480 Mb/s"
+                                        info["transfer_speed"] = "High Speed"
+                                        usb_version_detected = True
+                                        debug_info(f"USB 2.0 erkannt über Controller: {subkey_name}")
+                                        break
+                                    i += 1
+                                except WindowsError:
+                                    break
+                            
+                            winreg.CloseKey(parent_key)
+                        except:
+                            pass
+                            
+                except Exception as e:
+                    debug_warning(f"Fehler beim Lesen der Registry-Werte: {e}")
+            
+            # Fallback: Device-Key-basierte Erkennung
+            if not usb_version_detected:
+                device_key_upper = device_key.upper()
+                
+                if any(indicator in device_key_upper for indicator in ["USB30", "XHCI", "USB3"]):
+                    info["usb_version"] = "USB 3.0"
+                    info["max_transfer_speed"] = "5 Gb/s"
+                    info["transfer_speed"] = "SuperSpeed"
+                    debug_info(f"USB 3.0 erkannt über Device-Key: {device_key}")
+                elif any(indicator in device_key_upper for indicator in ["USB20", "EHCI"]):
+                    info["usb_version"] = "USB 2.0"
+                    info["max_transfer_speed"] = "480 Mb/s"
+                    info["transfer_speed"] = "High Speed"
+                    debug_info(f"USB 2.0 erkannt über Device-Key: {device_key}")
+                elif any(indicator in device_key_upper for indicator in ["USB11", "UHCI", "OHCI"]):
+                    info["usb_version"] = "USB 1.1"
+                    info["max_transfer_speed"] = "12 Mb/s"
+                    info["transfer_speed"] = "Full Speed"
+                    debug_info(f"USB 1.1 erkannt über Device-Key: {device_key}")
+                else:
+                    # Intelligente Standard-Annahme: Moderne Systeme haben meist USB 3.0
+                    info["usb_version"] = "USB 2.0"
+                    info["max_transfer_speed"] = "480 Mb/s"
+                    info["transfer_speed"] = "High Speed"
+                    debug_info(f"USB-Version nicht eindeutig erkennbar, verwende USB 2.0 als Standard")
             
             # Hersteller basierend auf Vendor ID ermitteln
             manufacturer = PlatformUtils._get_manufacturer_by_vid(vendor_id)
@@ -801,7 +907,7 @@ class PlatformUtils:
                 info["manufacturer"] = manufacturer
             
             # Stromverbrauch basierend auf USB-Version schätzen
-            if info["usb_version"] == "USB 3.0":
+            if info["usb_version"] in ["USB 3.0", "USB 3.1"]:
                 info["max_power"] = "900 mA"
                 info["current_available"] = "900 mA"
                 info["power_consumption"] = "High Performance"
@@ -821,6 +927,15 @@ class PlatformUtils:
             
         except Exception as e:
             debug_error(f"Fehler bei erweiterten USB-Informationen: {e}")
+            # Minimal-Fallback
+            info = {
+                "usb_version": "USB 2.0",
+                "max_transfer_speed": "480 Mb/s",
+                "transfer_speed": "High Speed",
+                "max_power": "500 mA",
+                "current_available": "500 mA",
+                "power_consumption": "Standard"
+            }
         
         return info
     
@@ -910,3 +1025,102 @@ class PlatformUtils:
         
         # Default
         return "Communication Device"
+    
+    @staticmethod
+    def _get_usb_controller_info() -> Dict[str, str]:
+        """Sammelt Informationen über USB-Controller im System."""
+        controller_info = {
+            "usb3_controllers": [],
+            "usb2_controllers": [],
+            "usb1_controllers": []
+        }
+        
+        try:
+            import winreg
+            
+            # USB-Controller in verschiedenen Registry-Pfaden suchen
+            controller_paths = [
+                r"SYSTEM\CurrentControlSet\Services\xhci",  # USB 3.0
+                r"SYSTEM\CurrentControlSet\Services\usbxhci",  # USB 3.0
+                r"SYSTEM\CurrentControlSet\Services\ehci",  # USB 2.0
+                r"SYSTEM\CurrentControlSet\Services\usbehci",  # USB 2.0
+                r"SYSTEM\CurrentControlSet\Services\uhci",  # USB 1.1
+                r"SYSTEM\CurrentControlSet\Services\ohci",  # USB 1.1
+            ]
+            
+            for path in controller_paths:
+                try:
+                    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path)
+                    
+                    # Service-Name lesen
+                    try:
+                        service_name = winreg.QueryValueEx(key, "DisplayName")[0]
+                    except:
+                        service_name = path.split("\\")[-1]
+                    
+                    # Controller-Typ bestimmen
+                    service_upper = service_name.upper()
+                    path_upper = path.upper()
+                    
+                    if any(indicator in service_upper or indicator in path_upper for indicator in ["XHCI", "USB3", "SUPERSPEED"]):
+                        controller_info["usb3_controllers"].append(service_name)
+                        debug_info(f"USB 3.0 Controller gefunden: {service_name}")
+                    elif any(indicator in service_upper or indicator in path_upper for indicator in ["EHCI", "USB2", "HIGH"]):
+                        controller_info["usb2_controllers"].append(service_name)
+                        debug_info(f"USB 2.0 Controller gefunden: {service_name}")
+                    elif any(indicator in service_upper or indicator in path_upper for indicator in ["UHCI", "OHCI", "USB1"]):
+                        controller_info["usb1_controllers"].append(service_name)
+                        debug_info(f"USB 1.x Controller gefunden: {service_name}")
+                    
+                    winreg.CloseKey(key)
+                except:
+                    continue
+                    
+        except Exception as e:
+            debug_warning(f"Fehler beim Sammeln der Controller-Informationen: {e}")
+        
+        return controller_info
+    
+    @staticmethod
+    def _correct_usb_version_by_controller(device: Dict[str, Any], controller_info: Dict[str, str]) -> Optional[Dict[str, str]]:
+        """Korrigiert die USB-Version basierend auf verfügbaren Controllern."""
+        corrections = {}
+        
+        try:
+            device_name = device.get("name", "").upper()
+            device_desc = device.get("description", "").upper()
+            device_type = device.get("device_type", "")
+            
+            # Spezielle Behandlung für USB-Hubs
+            if "HUB" in device_name or "HUB" in device_desc:
+                # Wenn USB 3.0 Controller verfügbar sind und es ein Hub ist
+                if controller_info.get("usb3_controllers"):
+                    # Prüfe auf spezifische USB 3.0 Indikatoren
+                    if any(indicator in device_name or indicator in device_desc for indicator in [
+                        "USB 3.0", "USB3.0", "SUPERSPEED", "ROOT HUB", "XHCI"
+                    ]):
+                        corrections["usb_version"] = "USB 3.0"
+                        corrections["max_transfer_speed"] = "5 Gb/s"
+                        corrections["transfer_speed"] = "SuperSpeed"
+                        corrections["max_power"] = "900 mA"
+                        corrections["current_available"] = "900 mA"
+                        corrections["power_consumption"] = "High Performance"
+                        debug_info(f"USB-Version für Hub korrigiert: {device_name} -> USB 3.0")
+            
+            # Spezielle Behandlung für bekannte USB 3.0 Geräte
+            elif any(indicator in device_name or indicator in device_desc for indicator in [
+                "SUPERSPEED", "USB 3.", "USB3", "5 GB/S", "5GB/S"
+            ]):
+                if controller_info.get("usb3_controllers"):
+                    corrections["usb_version"] = "USB 3.0"
+                    corrections["max_transfer_speed"] = "5 Gb/s"
+                    corrections["transfer_speed"] = "SuperSpeed"
+                    corrections["max_power"] = "900 mA"
+                    corrections["current_available"] = "900 mA"
+                    corrections["power_consumption"] = "High Performance"
+                    debug_info(f"USB-Version korrigiert: {device_name} -> USB 3.0")
+            
+        except Exception as e:
+            debug_error(f"Fehler bei USB-Versions-Korrektur: {e}")
+        
+        return corrections if corrections else None

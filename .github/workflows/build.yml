@@ -13,6 +13,9 @@ on:
         required: false
         default: ""
 
+permissions:
+  contents: write
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -107,7 +110,7 @@ jobs:
           files: |
             artifacts/USB-Monitor-Windows.zip
             artifacts/USB-Monitor-macOS.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        permissions:
+          contents: write
 
 

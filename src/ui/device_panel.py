@@ -527,8 +527,8 @@ class DevicePanel(QWidget):
     
     def _auto_refresh(self) -> None:
         """Führt eine automatische Aktualisierung durch."""
-        if self.auto_refresh_cb.isChecked():
-            self._refresh_devices()
+        # Auto-Refresh wird jetzt vom Hauptfenster gesteuert
+        self._refresh_devices()
     
     def _refresh_devices(self) -> None:
         """Aktualisiert die Geräteliste."""

@@ -482,8 +482,8 @@ class PortPanel(QWidget):
     
     def _auto_refresh(self) -> None:
         """Führt eine automatische Aktualisierung durch."""
-        if self.auto_refresh_cb.isChecked():
-            self._refresh_ports()
+        # Auto-Refresh wird jetzt vom Hauptfenster gesteuert
+        self._refresh_ports()
     
     def _refresh_ports(self) -> None:
         """Aktualisiert die Portliste."""

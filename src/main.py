@@ -91,40 +91,14 @@ class USBMonitorApp:
             
     def _setup_application_icon(self) -> None:
         """Setzt das Anwendungs-Icon."""
-        # Verschiedene Icon-Formate versuchen (nur für Windows)
-        platform = PlatformUtils.get_platform()
-        
-        if platform == "windows":
-            # Windows: ICO-Format bevorzugen
-            icon_paths = [
-                "assets/icons/app_icon.ico",  # Windows (bevorzugt)
-                "assets/icons/app_icon.png",  # Universal
-                "assets/icons/logo.png",      # Fallback
-            ]
-            
-            for icon_path in icon_paths:
-                if os.path.exists(icon_path):
-                    try:
-                        icon = QIcon(icon_path)
-                        if not icon.isNull():
-                            self.app.setWindowIcon(icon)
-                            print(f"✅ Windows App-Icon gesetzt: {icon_path}")
-                            return
-                    except Exception as e:
-                        print(f"⚠️  Fehler beim Laden des Icons {icon_path}: {e}")
-                        continue
-        else:
-            # macOS/Linux: Standard-Icon
-            icon_path = project_root / "assets" / "icons" / "app_icon.png"
-            if icon_path.exists():
-                self.app.setWindowIcon(QIcon(str(icon_path)))
-                print(f"✅ Standard App-Icon gesetzt: {icon_path}")
+        # Icon-Integration temporär deaktiviert für Build-Stabilität
+        # TODO: Nach Build-Fix wieder aktivieren
+        print("⚠️  Icon-Integration temporär deaktiviert")
         
         # Fallback: System-Icon
-        if self.app.windowIcon().isNull():
-            print("⚠️  Verwende System-Icon als Fallback")
-            from ui.icons import get_icon
-            self.app.setWindowIcon(get_icon("usb"))
+        from ui.icons import get_icon
+        self.app.setWindowIcon(get_icon("usb"))
+        print("✅ System-Icon als Fallback gesetzt")
 
     def create_main_window(self) -> None:
         """Erstellt das Hauptfenster der Anwendung."""

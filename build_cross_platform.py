@@ -72,8 +72,9 @@ def build_for_platform(platform_name, icon_path=None):
         "src/main.py"
     ]
     
-    # Icon hinzufügen, falls vorhanden
-    if icon_path and os.path.exists(icon_path):
+    # Icon temporär deaktiviert, um Build-Probleme zu vermeiden
+    # TODO: Icon-Integration nach Build-Fix wieder aktivieren
+    if False and icon_path and os.path.exists(icon_path):
         # Prüfe Icon-Format und konvertiere bei Bedarf
         icon_ext = os.path.splitext(icon_path)[1].lower()
         if icon_ext == ".png":
@@ -93,6 +94,8 @@ def build_for_platform(platform_name, icon_path=None):
             print(f"   🎯 Windows ICO-Icon wird explizit eingebettet")
         elif platform_name == "macOS" and icon_ext in [".icns", ".png"]:
             print(f"   🎯 macOS Icon wird explizit eingebettet")
+    
+    print(f"   ⚠️  Icon-Integration temporär deaktiviert für Build-Stabilität")
     
     print(f"   Führe aus: {' '.join(cmd)}")
     

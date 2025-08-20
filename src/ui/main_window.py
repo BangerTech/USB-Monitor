@@ -86,9 +86,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("USB-Monitor")
         
         # App-Icon wird bereits von der Hauptanwendung gesetzt
-        # Hier nur Fallback, falls nötig
-        if self.windowIcon().isNull():
-            self.setWindowIcon(get_icon("usb"))
+        # Icon-Integration temporär deaktiviert für Build-Stabilität
+        pass
         
         # Fenstergröße und Position
         window_width = self.config.get("window_width", 1200)

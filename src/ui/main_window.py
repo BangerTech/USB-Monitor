@@ -22,6 +22,7 @@ from utils.platform_utils import PlatformUtils
 from ui.styles import Styles
 from ui.device_panel import DevicePanel
 from ui.port_panel import PortPanel
+from ui.debug_panel import DebugPanel
 from ui.icons import get_icon
 
 
@@ -48,6 +49,8 @@ class MainWindow(QMainWindow):
         # UI-Komponenten
         self.central_widget: Optional[QWidget] = None
         self.tab_widget: Optional[QTabWidget] = None
+        self.debug_panel: Optional[DebugPanel] = None
+        self.debug_tab_index: int = -1
         self.device_panel: Optional[DevicePanel] = None
         self.port_panel: Optional[PortPanel] = None
         self.status_bar: Optional[QStatusBar] = None
@@ -266,6 +269,16 @@ class MainWindow(QMainWindow):
             light_theme_action.setChecked(True)
         else:
             auto_theme_action.setChecked(True)
+        
+        view_menu.addSeparator()
+        
+        # Debug-Panel
+        debug_action = QAction("🔍 &Debug-Konsole", self)
+        debug_action.setCheckable(True)
+        debug_action.setShortcut(QKeySequence("Ctrl+D"))
+        debug_action.triggered.connect(self._toggle_debug_panel)
+        view_menu.addAction(debug_action)
+        self.debug_action = debug_action  # Referenz speichern
         
         # Hilfe-Menü
         help_menu = menubar.addMenu("&Hilfe")
@@ -626,6 +639,21 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Fehler beim Schließen des Fensters: {e}")
             event.accept()
+    
+    def _toggle_debug_panel(self) -> None:
+        """Schaltet das Debug-Panel ein/aus."""
+        if self.debug_tab_index >= 0:
+            # Debug-Panel ist bereits sichtbar - entfernen
+            self.tab_widget.removeTab(self.debug_tab_index)
+            self.debug_tab_index = -1
+            self.debug_action.setChecked(False)
+        else:
+            # Debug-Panel hinzufügen
+            if self.debug_panel is None:
+                self.debug_panel = DebugPanel(self.config)
+            
+            self.debug_tab_index = self.tab_widget.addTab(self.debug_panel, "🔍 Debug")
+            self.debug_action.setChecked(True)
     
     def keyPressEvent(self, event) -> None:
         """Behandelt Tastatureingaben."""

@@ -64,24 +64,7 @@ class USBMonitorApp:
         elif platform == "windows":
             # Windows-spezifische Einstellungen
             # High-DPI wird automatisch von Windows gehandhabt
-            
-            # Debug-Konsole für Windows aktivieren
-            try:
-                import ctypes
-                import sys
-                
-                # Konsole erstellen/anzeigen
-                ctypes.windll.kernel32.AllocConsole()
-                
-                # Standard-Ausgabe umleiten
-                sys.stdout = open('CONOUT$', 'w')
-                sys.stderr = open('CONOUT$', 'w')
-                
-                print("🔍 USB-Monitor Debug-Konsole aktiviert")
-                print("=" * 50)
-                
-            except Exception as e:
-                pass  # Fehler ignorieren, falls Konsole nicht erstellt werden kann
+            pass
             
     def _setup_application_style(self) -> None:
         """Konfiguriert den Anwendungsstil."""

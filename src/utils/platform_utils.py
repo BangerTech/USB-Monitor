@@ -8,6 +8,15 @@ from typing import List, Dict, Any, Optional
 import subprocess
 import re
 
+# Debug-Funktionen importieren
+try:
+    from ui.debug_panel import debug_info, debug_warning, debug_error
+except ImportError:
+    # Fallback für den Fall, dass Debug-Panel nicht verfügbar ist
+    def debug_info(msg): print(f"[INFO] {msg}")
+    def debug_warning(msg): print(f"[WARNING] {msg}")
+    def debug_error(msg): print(f"[ERROR] {msg}")
+
 
 class PlatformUtils:
     """Plattform-spezifische Hilfsfunktionen."""
@@ -249,7 +258,7 @@ class PlatformUtils:
         """Ermittelt USB-Geräte unter Windows."""
         devices = []
         
-        print("   🔍 Starte Windows USB-Geräte-Erkennung...")
+        debug_info("🔍 Starte Windows USB-Geräte-Erkennung...")
         
         # Methode 1: Windows Registry (zuverlässiger als WMI)
         devices.extend(PlatformUtils._get_windows_usb_devices_registry())
@@ -261,11 +270,11 @@ class PlatformUtils:
         try:
             import wmi
             import pythoncom
-            print("   ✅ WMI verfügbar - verwende als zusätzliche Quelle")
+            debug_info("✅ WMI verfügbar - verwende als zusätzliche Quelle")
             
             devices.extend(PlatformUtils._get_windows_usb_devices_wmi())
         except ImportError:
-            print("   ⚠️ WMI nicht verfügbar - verwende nur Registry/COM-Port-Methoden")
+            debug_warning("⚠️ WMI nicht verfügbar - verwende nur Registry/COM-Port-Methoden")
         
         # Duplikate entfernen
         unique_devices = []
@@ -279,7 +288,7 @@ class PlatformUtils:
             elif not device_id:  # Geräte ohne ID trotzdem hinzufügen
                 unique_devices.append(device)
         
-        print(f"   📊 Insgesamt {len(unique_devices)} eindeutige USB-Geräte gefunden")
+        debug_info(f"📊 Insgesamt {len(unique_devices)} eindeutige USB-Geräte gefunden")
         return unique_devices
     
     @staticmethod
@@ -550,7 +559,7 @@ class PlatformUtils:
         
         try:
             import winreg
-            print("   🔍 Durchsuche Windows Registry nach USB-Geräten...")
+            debug_info("🔍 Durchsuche Windows Registry nach USB-Geräten...")
             
             # USB-Geräte aus verschiedenen Registry-Pfaden
             registry_paths = [
@@ -561,7 +570,7 @@ class PlatformUtils:
             
             for registry_path in registry_paths:
                 try:
-                    print(f"   🔍 Durchsuche {registry_path}...")
+                    debug_info(f"🔍 Durchsuche {registry_path}...")
                     key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, registry_path)
                     
                     # Alle USB-Geräte-Schlüssel auflisten
@@ -569,7 +578,7 @@ class PlatformUtils:
                     while True:
                         try:
                             device_key_name = winreg.EnumKey(key, i)
-                            print(f"   🔍 Gefunden: {device_key_name}")
+                            debug_info(f"🔍 Gefunden: {device_key_name}")
                             
                             # Device-Subkeys durchgehen
                             device_key = winreg.OpenKey(key, device_key_name)
@@ -619,47 +628,37 @@ class PlatformUtils:
                                                 product_id = pid_match.group(1)
                                         
                                         # Gerätetyp bestimmen
-                                        device_type = "USB Device"
-                                        device_name_lower = device_name.lower()
-                                        if "keyboard" in device_name_lower or "tastatur" in device_name_lower:
-                                            device_type = "Keyboard"
-                                        elif "mouse" in device_name_lower or "maus" in device_name_lower:
-                                            device_type = "Mouse"
-                                        elif "audio" in device_name_lower or "sound" in device_name_lower:
-                                            device_type = "Audio Device"
-                                        elif "storage" in device_name_lower or "disk" in device_name_lower or "drive" in device_name_lower:
-                                            device_type = "Storage"
-                                        elif "hub" in device_name_lower:
-                                            device_type = "USB Hub"
-                                        elif "hid" in registry_path.lower():
-                                            device_type = "HID Device"
+                                        device_type = PlatformUtils._determine_device_type(device_name, registry_path)
+                                        
+                                        # USB-Geschwindigkeit und erweiterte Informationen ermitteln
+                                        usb_info = PlatformUtils._get_enhanced_usb_info(device_key_name, vendor_id, product_id)
                                         
                                         device_info = {
                                             "name": device_name,
                                             "description": device_desc,
                                             "device_id": f"{device_key_name}\\{instance_key_name}",
-                                            "manufacturer": manufacturer,
+                                            "manufacturer": usb_info.get("manufacturer", manufacturer),
                                             "status": "OK",
                                             "is_connected": True,
                                             "device_type": device_type,
-                                            "usb_version": "USB 2.0/3.0",
+                                            "usb_version": usb_info.get("usb_version", "USB 2.0"),
                                             "product_id": product_id,
                                             "vendor_id": vendor_id,
                                             "serial_number": instance_key_name,
                                             "driver": device_name,
-                                            "power_consumption": "Standard",
-                                            "max_power": "500 mA",
-                                            "current_required": "Unknown",
-                                            "current_available": "500 mA",
-                                            "transfer_speed": "Unknown",
-                                            "max_transfer_speed": "480 Mb/s",
-                                            "device_class": "Unknown",
-                                            "device_subclass": "",
-                                            "device_protocol": ""
+                                            "power_consumption": usb_info.get("power_consumption", "Standard"),
+                                            "max_power": usb_info.get("max_power", "500 mA"),
+                                            "current_required": usb_info.get("current_required", "Unknown"),
+                                            "current_available": usb_info.get("current_available", "500 mA"),
+                                            "transfer_speed": usb_info.get("transfer_speed", "Unknown"),
+                                            "max_transfer_speed": usb_info.get("max_transfer_speed", "480 Mb/s"),
+                                            "device_class": usb_info.get("device_class", "Unknown"),
+                                            "device_subclass": usb_info.get("device_subclass", ""),
+                                            "device_protocol": usb_info.get("device_protocol", "")
                                         }
                                         
                                         devices.append(device_info)
-                                        print(f"   ✅ Registry-USB-Gerät gefunden: {device_name}")
+                                        debug_info(f"✅ Registry-USB-Gerät gefunden: {device_name}")
                                         
                                     finally:
                                         winreg.CloseKey(instance_key)
@@ -692,7 +691,7 @@ class PlatformUtils:
         
         try:
             import serial.tools.list_ports
-            print("   🔍 Durchsuche COM-Ports nach USB-Geräten...")
+            debug_info("🔍 Durchsuche COM-Ports nach USB-Geräten...")
             
             ports = serial.tools.list_ports.comports()
             
@@ -726,10 +725,188 @@ class PlatformUtils:
                     }
                     
                     devices.append(device_info)
-                    print(f"   ✅ USB-COM-Port gefunden: {device_name}")
+                    debug_info(f"✅ USB-COM-Port gefunden: {device_name}")
                     
         except Exception as e:
-            print(f"   ❌ COM-Port-Zugriff fehlgeschlagen: {e}")
+            debug_error(f"❌ COM-Port-Zugriff fehlgeschlagen: {e}")
         
-        print(f"   📊 {len(devices)} USB-COM-Ports gefunden")
+        debug_info(f"📊 {len(devices)} USB-COM-Ports gefunden")
         return devices
+    
+    @staticmethod
+    def _determine_device_type(device_name: str, registry_path: str = "") -> str:
+        """Bestimmt den Gerätetyp basierend auf Name und Registry-Pfad."""
+        device_name_lower = device_name.lower()
+        
+        # Spezifische Gerätetypen
+        if "keyboard" in device_name_lower or "tastatur" in device_name_lower:
+            return "Keyboard"
+        elif "mouse" in device_name_lower or "maus" in device_name_lower:
+            return "Mouse"
+        elif "audio" in device_name_lower or "sound" in device_name_lower or "speaker" in device_name_lower or "microphone" in device_name_lower:
+            return "Audio Device"
+        elif "storage" in device_name_lower or "disk" in device_name_lower or "drive" in device_name_lower or "ssd" in device_name_lower or "hdd" in device_name_lower:
+            return "Storage"
+        elif "hub" in device_name_lower:
+            return "USB Hub"
+        elif "camera" in device_name_lower or "webcam" in device_name_lower:
+            return "Camera"
+        elif "bluetooth" in device_name_lower:
+            return "Bluetooth Adapter"
+        elif "wifi" in device_name_lower or "wireless" in device_name_lower or "wlan" in device_name_lower:
+            return "Wireless Adapter"
+        elif "printer" in device_name_lower:
+            return "Printer"
+        elif "scanner" in device_name_lower:
+            return "Scanner"
+        elif "gamepad" in device_name_lower or "controller" in device_name_lower or "joystick" in device_name_lower:
+            return "Game Controller"
+        elif "serial" in device_name_lower or "com" in device_name_lower:
+            return "Serial Device"
+        elif "hid" in registry_path.lower():
+            return "HID Device"
+        elif "composite" in device_name_lower:
+            return "Composite Device"
+        else:
+            return "USB Device"
+    
+    @staticmethod
+    def _get_enhanced_usb_info(device_key: str, vendor_id: str, product_id: str) -> Dict[str, str]:
+        """Ermittelt erweiterte USB-Informationen."""
+        info = {}
+        
+        try:
+            # USB-Geschwindigkeit basierend auf Device-Key ermitteln
+            if "USB30" in device_key.upper() or "XHCI" in device_key.upper():
+                info["usb_version"] = "USB 3.0"
+                info["max_transfer_speed"] = "5 Gb/s"
+                info["transfer_speed"] = "SuperSpeed"
+            elif "USB20" in device_key.upper() or "EHCI" in device_key.upper():
+                info["usb_version"] = "USB 2.0"
+                info["max_transfer_speed"] = "480 Mb/s"
+                info["transfer_speed"] = "High Speed"
+            elif "USB11" in device_key.upper() or "UHCI" in device_key.upper() or "OHCI" in device_key.upper():
+                info["usb_version"] = "USB 1.1"
+                info["max_transfer_speed"] = "12 Mb/s"
+                info["transfer_speed"] = "Full Speed"
+            else:
+                # Standard-Annahme basierend auf aktuellen Standards
+                info["usb_version"] = "USB 2.0"
+                info["max_transfer_speed"] = "480 Mb/s"
+                info["transfer_speed"] = "High Speed"
+            
+            # Hersteller basierend auf Vendor ID ermitteln
+            manufacturer = PlatformUtils._get_manufacturer_by_vid(vendor_id)
+            if manufacturer:
+                info["manufacturer"] = manufacturer
+            
+            # Stromverbrauch basierend auf USB-Version schätzen
+            if info["usb_version"] == "USB 3.0":
+                info["max_power"] = "900 mA"
+                info["current_available"] = "900 mA"
+                info["power_consumption"] = "High Performance"
+            elif info["usb_version"] == "USB 2.0":
+                info["max_power"] = "500 mA"
+                info["current_available"] = "500 mA"
+                info["power_consumption"] = "Standard"
+            else:
+                info["max_power"] = "100 mA"
+                info["current_available"] = "100 mA"
+                info["power_consumption"] = "Low Power"
+            
+            # Device-Klasse basierend auf Vendor/Product ID
+            device_class = PlatformUtils._get_device_class_by_ids(vendor_id, product_id)
+            if device_class:
+                info["device_class"] = device_class
+            
+        except Exception as e:
+            debug_error(f"Fehler bei erweiterten USB-Informationen: {e}")
+        
+        return info
+    
+    @staticmethod
+    def _get_manufacturer_by_vid(vendor_id: str) -> Optional[str]:
+        """Ermittelt den Hersteller basierend auf der Vendor ID."""
+        # Bekannte Vendor IDs
+        vendor_map = {
+            "046D": "Logitech",
+            "045E": "Microsoft",
+            "05AC": "Apple",
+            "1D6B": "Linux Foundation",
+            "8087": "Intel",
+            "0BDA": "Realtek",
+            "0424": "Microchip Technology",
+            "1A86": "QinHeng Electronics",
+            "10C4": "Silicon Labs",
+            "0403": "Future Technology Devices International",
+            "067B": "Prolific Technology",
+            "2341": "Arduino SA",
+            "16C0": "Van Ooijen Technische Informatica",
+            "0781": "SanDisk",
+            "090C": "Silicon Motion",
+            "13FE": "Kingston Technology",
+            "0951": "Kingston Technology",
+            "058F": "Alcor Micro",
+            "0930": "Toshiba",
+            "04E8": "Samsung Electronics",
+            "18A5": "Verbatim",
+            "1058": "Western Digital",
+            "0BC2": "Seagate",
+            "152D": "JMicron Technology",
+            "174C": "ASMedia Technology",
+            "2109": "VIA Labs",
+            "1B1C": "Corsair",
+            "046A": "Cherry",
+            "04D9": "Holtek Semiconductor",
+            "1C4F": "SiGma Micro",
+            "0A5C": "Broadcom",
+            "8086": "Intel Corporation",
+            "1002": "AMD",
+            "10DE": "NVIDIA Corporation",
+            "0E8D": "MediaTek",
+            "2717": "Xiaomi",
+            "12D1": "Huawei Technologies",
+            "04E6": "SCM Microsystems",
+            "0483": "STMicroelectronics"
+        }
+        
+        return vendor_map.get(vendor_id.upper())
+    
+    @staticmethod
+    def _get_device_class_by_ids(vendor_id: str, product_id: str) -> Optional[str]:
+        """Ermittelt die Device-Klasse basierend auf Vendor/Product ID."""
+        # Bekannte Device-Klassen basierend auf VID/PID
+        vid = vendor_id.upper()
+        pid = product_id.upper()
+        
+        # Logitech Geräte
+        if vid == "046D":
+            if pid in ["C52B", "C534", "C077"]:  # Unifying Receiver, etc.
+                return "Human Interface Device"
+            elif pid in ["0825", "082D"]:  # Webcams
+                return "Video Device"
+            elif pid in ["C31C", "C332"]:  # Keyboards
+                return "Keyboard"
+            elif pid in ["C05A", "C069"]:  # Mice
+                return "Mouse"
+        
+        # Microsoft Geräte
+        elif vid == "045E":
+            if pid in ["0040", "00DB"]:  # Mice
+                return "Mouse"
+            elif pid in ["0750", "028E"]:  # Xbox Controller
+                return "Game Controller"
+        
+        # Apple Geräte
+        elif vid == "05AC":
+            if pid in ["0250", "0252"]:  # Keyboards
+                return "Keyboard"
+            elif pid in ["030D", "030E"]:  # Mice
+                return "Mouse"
+        
+        # Intel
+        elif vid == "8087":
+            return "Wireless Controller"
+        
+        # Default
+        return "Communication Device"

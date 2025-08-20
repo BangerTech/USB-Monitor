@@ -85,13 +85,31 @@ class MainWindow(QMainWindow):
         """Konfiguriert das Hauptfenster."""
         self.setWindowTitle("USB-Monitor")
         
-        # App-Icon setzen (falls vorhanden)
-        icon_path = "assets/icons/app_icon.png"
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
-        else:
+        # App-Icon setzen (verschiedene Formate versuchen)
+        icon_paths = [
+            "assets/icons/app_icon.ico",  # Windows (bevorzugt)
+            "assets/icons/app_icon.png",  # Universal
+            "assets/icons/logo.png",      # Fallback
+        ]
+        
+        icon_set = False
+        for icon_path in icon_paths:
+            if os.path.exists(icon_path):
+                try:
+                    icon = QIcon(icon_path)
+                    if not icon.isNull():
+                        self.setWindowIcon(icon)
+                        print(f"✅ Fenster-Icon gesetzt: {icon_path}")
+                        icon_set = True
+                        break
+                except Exception as e:
+                    print(f"⚠️  Fehler beim Laden des Icons {icon_path}: {e}")
+                    continue
+        
+        if not icon_set:
             # Fallback: System-Icon verwenden
             self.setWindowIcon(get_icon("usb"))
+            print("⚠️  Verwende System-Icon als Fallback")
         
         # Fenstergröße und Position
         window_width = self.config.get("window_width", 1200)

@@ -259,7 +259,8 @@ class PlatformUtils:
             try:
                 c = wmi.WMI()
                 
-                # Methode 1: Win32_USBHub verwenden (bessere Geräte-Erkennung)
+                # Methode 1: Win32_USBHub verwenden
+                print("   🔍 Suche nach USB-Hubs...")
                 for hub in c.Win32_USBHub():
                     try:
                         device_info = {
@@ -300,10 +301,13 @@ class PlatformUtils:
                                         device_info["product_id"] = pid_match.group(1)
                         
                         devices.append(device_info)
+                        print(f"   ✅ USB Hub gefunden: {device_info['name']}")
                     except Exception as e:
+                        print(f"   ⚠️  Fehler bei USB Hub: {e}")
                         continue
                 
                 # Methode 2: Win32_PnPEntity für alle USB-Geräte
+                print("   🔍 Suche nach USB-Geräten...")
                 for device in c.Win32_PnPEntity():
                     try:
                         if device.DeviceID and "USB" in device.DeviceID:
@@ -364,6 +368,58 @@ class PlatformUtils:
                                 device_info["device_type"] = "Controller"
                             
                             devices.append(device_info)
+                            print(f"   ✅ USB-Gerät gefunden: {device_info['name']} ({device_info['device_type']})")
+                    except Exception as e:
+                        continue
+                
+                # Methode 3: Win32_USBControllerDevice (ursprüngliche Methode)
+                print("   🔍 Suche nach USB-Controller-Geräten...")
+                for device in c.Win32_USBControllerDevice():
+                    try:
+                        dependent = device.Dependent
+                        if dependent and dependent not in [d["device_id"] for d in devices]:
+                            device_info = {
+                                "name": dependent.Name or "USB Controller Device",
+                                "description": dependent.Description or "",
+                                "device_id": dependent.DeviceID or "",
+                                "manufacturer": dependent.Manufacturer or "Unknown",
+                                "status": dependent.Status or "OK",
+                                "is_connected": True,
+                                "device_type": "USB Device",
+                                "usb_version": "USB 2.0/3.0",
+                                "product_id": "",
+                                "vendor_id": "",
+                                "serial_number": "",
+                                "driver": dependent.Name or "",
+                                "power_consumption": "Standard",
+                                "max_power": "500 mA",
+                                "current_required": "Unknown",
+                                "current_available": "500 mA",
+                                "transfer_speed": "Unknown",
+                                "max_transfer_speed": "480 Mb/s",
+                                "device_class": "Unknown",
+                                "device_subclass": "",
+                                "device_protocol": ""
+                            }
+                            
+                            # VID/PID aus DeviceID extrahieren
+                            if dependent.DeviceID:
+                                parts = dependent.DeviceID.split("\\")
+                                if len(parts) >= 2:
+                                    vid_pid = parts[1]
+                                    if "VID_" in vid_pid and "PID_" in vid_pid:
+                                        vid_match = re.search(r"VID_([A-F0-9]{4})", vid_pid)
+                                        pid_match = re.search(r"PID_([A-F0-9]{4})", vid_pid)
+                                        if vid_match:
+                                            device_info["vendor_id"] = vid_match.group(1)
+                                        if pid_match:
+                                            device_info["product_id"] = pid_match.group(1)
+                                
+                                if len(parts) >= 3:
+                                    device_info["serial_number"] = parts[2]
+                            
+                            devices.append(device_info)
+                            print(f"   ✅ USB Controller Device gefunden: {device_info['name']}")
                     except Exception as e:
                         continue
                         
@@ -371,6 +427,7 @@ class PlatformUtils:
                 pythoncom.CoUninitialize()
                     
         except ImportError:
+            print("   ⚠️  WMI nicht verfügbar, verwende Registry-Fallback...")
             # Fallback: Registry abfragen
             try:
                 import winreg
@@ -401,6 +458,7 @@ class PlatformUtils:
                                 "driver": ""
                             }
                             devices.append(device_info)
+                            print(f"   ✅ Registry-USB-Gerät gefunden: {device_name}")
                         except:
                             pass
                         finally:
@@ -409,9 +467,10 @@ class PlatformUtils:
                     except WindowsError:
                         break
                 winreg.CloseKey(key)
-            except:
-                pass
-            
+            except Exception as e:
+                print(f"   ❌ Registry-Fallback fehlgeschlagen: {e}")
+        
+        print(f"   📊 Insgesamt {len(devices)} USB-Geräte gefunden")
         return devices
     
     @staticmethod

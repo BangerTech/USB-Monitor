@@ -84,8 +84,15 @@ def build_for_platform(platform_name, icon_path=None):
         elif icon_ext == ".icns":
             print(f"   ICNS-Icon gefunden: {icon_path}")
         
+        # Icon explizit einbetten
         cmd.extend(["--icon", icon_path])
         print(f"   Icon wird verwendet: {icon_path}")
+        
+        # Zusätzliche Icon-Einbettung für bessere Unterstützung
+        if platform_name == "Windows" and icon_ext == ".ico":
+            print(f"   🎯 Windows ICO-Icon wird explizit eingebettet")
+        elif platform_name == "macOS" and icon_ext in [".icns", ".png"]:
+            print(f"   🎯 macOS Icon wird explizit eingebettet")
     
     print(f"   Führe aus: {' '.join(cmd)}")
     

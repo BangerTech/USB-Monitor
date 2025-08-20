@@ -12,6 +12,8 @@ on:
         description: "Tag-Name für Release (z.B. v1.0.0)"
         required: false
         default: ""
+  release:
+    types: [published]
 
 permissions:
   contents: write

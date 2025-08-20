@@ -249,205 +249,105 @@ class PlatformUtils:
         """Ermittelt USB-Geräte unter Windows."""
         devices = []
         
+        print("   🔍 Starte Windows USB-Geräte-Erkennung...")
+        
+        # Methode 1: Windows Registry (zuverlässiger als WMI)
+        devices.extend(PlatformUtils._get_windows_usb_devices_registry())
+        
+        # Methode 2: COM-Ports als USB-Geräte
+        devices.extend(PlatformUtils._get_windows_usb_devices_com_ports())
+        
+        # Methode 3: WMI als Fallback (falls verfügbar)
+        try:
+            import wmi
+            import pythoncom
+            print("   ✅ WMI verfügbar - verwende als zusätzliche Quelle")
+            
+            devices.extend(PlatformUtils._get_windows_usb_devices_wmi())
+        except ImportError:
+            print("   ⚠️ WMI nicht verfügbar - verwende nur Registry/COM-Port-Methoden")
+        
+        # Duplikate entfernen
+        unique_devices = []
+        seen_ids = set()
+        
+        for device in devices:
+            device_id = device.get("device_id", "")
+            if device_id and device_id not in seen_ids:
+                unique_devices.append(device)
+                seen_ids.add(device_id)
+            elif not device_id:  # Geräte ohne ID trotzdem hinzufügen
+                unique_devices.append(device)
+        
+        print(f"   📊 Insgesamt {len(unique_devices)} eindeutige USB-Geräte gefunden")
+        return unique_devices
+    
+    @staticmethod
+    def _get_windows_usb_devices_wmi() -> List[Dict[str, Any]]:
+        """Ermittelt USB-Geräte über WMI (falls verfügbar)."""
+        devices = []
+        
         try:
             import wmi
             import pythoncom
             
-            print("   ✅ WMI und pythoncom verfügbar")
-            
             # COM initialisieren
             pythoncom.CoInitialize()
-            print("   ✅ COM initialisiert")
             
             try:
                 c = wmi.WMI()
-                print("   ✅ WMI-Verbindung hergestellt")
+                print("   🔍 Suche nach WMI USB-Geräten...")
                 
-                # Methode 1: Win32_USBControllerDevice (ursprüngliche Methode)
-                print("   🔍 Suche nach Win32_USBControllerDevice...")
-                controller_devices = list(c.Win32_USBControllerDevice())
-                print(f"   📊 {len(controller_devices)} USB-Controller-Geräte gefunden")
-                
-                for device in controller_devices:
-                    try:
-                        # Das angeschlossene Gerät abrufen
-                        dependent = device.Dependent
-                        if dependent:
-                            print(f"   🔍 Verarbeite abhängiges Gerät: {dependent.Name}")
-                            
-                            device_info = {
-                                "name": dependent.Name or "Unbekannt",
-                                "description": dependent.Description or "",
-                                "device_id": dependent.DeviceID or "",
-                                "manufacturer": dependent.Manufacturer or "",
-                                "status": dependent.Status or "OK",
-                                "is_connected": True,
-                                "device_type": "USB Device",
-                                "usb_version": "USB 2.0/3.0",
-                                "product_id": "",
-                                "vendor_id": "",
-                                "serial_number": "",
-                                "driver": dependent.Name or "",
-                                # Erweiterte Informationen (Windows-spezifisch)
-                                "power_consumption": "Standard",
-                                "max_power": "500 mA",
-                                "current_required": "Unknown",
-                                "current_available": "500 mA",
-                                "transfer_speed": "Unknown",
-                                "max_transfer_speed": "480 Mb/s",
-                                "device_class": "Unknown",
-                                "device_subclass": "",
-                                "device_protocol": ""
-                            }
-                            
-                            # Zusätzliche Informationen aus dem DeviceID extrahieren
-                            if dependent.DeviceID:
-                                # USB\VID_xxxx&PID_xxxx\SerialNumber
-                                parts = dependent.DeviceID.split("\\")
-                                if len(parts) >= 2:
-                                    vid_pid = parts[1]
-                                    if "VID_" in vid_pid and "PID_" in vid_pid:
-                                        vid_match = re.search(r"VID_([A-F0-9]{4})", vid_pid)
-                                        pid_match = re.search(r"PID_([A-F0-9]{4})", vid_pid)
-                                        if vid_match:
-                                            device_info["vendor_id"] = vid_match.group(1)
-                                        if pid_match:
-                                            device_info["product_id"] = pid_match.group(1)
-                                    
-                                    if len(parts) >= 3:
-                                        device_info["serial_number"] = parts[2]
-                            
-                            devices.append(device_info)
-                            print(f"   ✅ USB-Gerät hinzugefügt: {device_info['name']}")
-                    except Exception as e:
-                        print(f"   ❌ Fehler bei USB-Controller-Gerät: {e}")
-                        # Einzelne Geräte überspringen, wenn Fehler auftreten
-                        continue
-                
-                # Methode 2: Win32_PnPEntity für zusätzliche USB-Geräte
-                print("   🔍 Suche nach Win32_PnPEntity USB-Geräten...")
-                pnp_devices = list(c.Win32_PnPEntity())
-                print(f"   📊 {len(pnp_devices)} PnP-Geräte gefunden")
-                
-                usb_pnp_count = 0
-                for device in pnp_devices:
-                    try:
-                        if device.DeviceID and "USB" in device.DeviceID:
-                            usb_pnp_count += 1
-                            print(f"   🔍 USB PnP-Gerät gefunden: {device.Name}")
-                            # Prüfe, ob das Gerät bereits hinzugefügt wurde
-                            if not any(d["device_id"] == device.DeviceID for d in devices):
-                                device_info = {
-                                    "name": device.Name or "USB Device",
-                                    "description": device.Description or "",
-                                    "device_id": device.DeviceID or "",
-                                    "manufacturer": device.Manufacturer or "Unknown",
-                                    "status": device.Status or "OK",
-                                    "is_connected": True,
-                                    "device_type": "USB Device",
-                                    "usb_version": "USB 2.0/3.0",
-                                    "product_id": "",
-                                    "vendor_id": "",
-                                    "serial_number": "",
-                                    "driver": device.Name or "",
-                                    "power_consumption": "Standard",
-                                    "max_power": "500 mA",
-                                    "current_required": "Unknown",
-                                    "current_available": "500 mA",
-                                    "transfer_speed": "Unknown",
-                                    "max_transfer_speed": "480 Mb/s",
-                                    "device_class": "Unknown",
-                                    "device_subclass": "",
-                                    "device_protocol": ""
-                                }
-                                
-                                # VID/PID aus DeviceID extrahieren
-                                if device.DeviceID:
-                                    parts = device.DeviceID.split("\\")
-                                    if len(parts) >= 2:
-                                        vid_pid = parts[1]
-                                        if "VID_" in vid_pid and "PID_" in vid_pid:
-                                            vid_match = re.search(r"VID_([A-F0-9]{4})", vid_pid)
-                                            pid_match = re.search(r"PID_([A-F0-9]{4})", vid_pid)
-                                            if vid_match:
-                                                device_info["vendor_id"] = vid_match.group(1)
-                                            if pid_match:
-                                                device_info["product_id"] = pid_match.group(1)
-                                        
-                                        if len(parts) >= 3:
-                                            device_info["serial_number"] = parts[2]
-                                
-                                # Gerätetyp bestimmen
-                                device_name_lower = device.Name.lower() if device.Name else ""
-                                if "keyboard" in device_name_lower:
-                                    device_info["device_type"] = "Keyboard"
-                                elif "mouse" in device_name_lower:
-                                    device_info["device_type"] = "Mouse"
-                                elif "audio" in device_name_lower or "speaker" in device_name_lower:
-                                    device_info["device_type"] = "Audio Device"
-                                elif "storage" in device_name_lower or "disk" in device_name_lower:
-                                    device_info["device_type"] = "Storage"
-                                elif "hub" in device_name_lower:
-                                    device_info["device_type"] = "USB Hub"
-                                elif "controller" in device_name_lower:
-                                    device_info["device_type"] = "Controller"
-                                
-                                devices.append(device_info)
-                                print(f"   ✅ USB PnP-Gerät hinzugefügt: {device_info['name']} ({device_info['device_type']})")
-                    except Exception as e:
-                        print(f"   ❌ Fehler bei PnP-Gerät: {e}")
-                        continue
-                
-                print(f"   📊 {usb_pnp_count} USB PnP-Geräte gefunden")
+                # Win32_PnPEntity für USB-Geräte
+                for device in c.Win32_PnPEntity():
+                    if device.DeviceID and "USB" in device.DeviceID:
+                        device_info = {
+                            "name": device.Name or "WMI USB Device",
+                            "description": device.Description or "",
+                            "device_id": device.DeviceID or "",
+                            "manufacturer": device.Manufacturer or "",
+                            "status": device.Status or "OK",
+                            "is_connected": True,
+                            "device_type": "USB Device",
+                            "usb_version": "USB 2.0/3.0",
+                            "product_id": "",
+                            "vendor_id": "",
+                            "serial_number": "",
+                            "driver": device.Name or "",
+                            "power_consumption": "Standard",
+                            "max_power": "500 mA",
+                            "current_required": "Unknown",
+                            "current_available": "500 mA",
+                            "transfer_speed": "Unknown",
+                            "max_transfer_speed": "480 Mb/s",
+                            "device_class": "Unknown",
+                            "device_subclass": "",
+                            "device_protocol": ""
+                        }
+                        
+                        # VID/PID extrahieren
+                        if device.DeviceID:
+                            parts = device.DeviceID.split("\\")
+                            if len(parts) >= 2:
+                                vid_pid = parts[1]
+                                if "VID_" in vid_pid and "PID_" in vid_pid:
+                                    vid_match = re.search(r"VID_([A-F0-9]{4})", vid_pid)
+                                    pid_match = re.search(r"PID_([A-F0-9]{4})", vid_pid)
+                                    if vid_match:
+                                        device_info["vendor_id"] = vid_match.group(1)
+                                    if pid_match:
+                                        device_info["product_id"] = pid_match.group(1)
+                        
+                        devices.append(device_info)
+                        print(f"   ✅ WMI-USB-Gerät gefunden: {device.Name}")
                         
             finally:
                 pythoncom.CoUninitialize()
-                print("   ✅ COM freigegeben")
-                    
-        except ImportError as e:
-            print(f"   ❌ WMI nicht verfügbar: {e}")
-            # Fallback: Registry abfragen
-            try:
-                import winreg
-                print("   🔍 Verwende Registry-Fallback...")
-                # USB-Geräte aus der Registry abrufen
-                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
-                                   r"SYSTEM\CurrentControlSet\Enum\USB")
-                i = 0
-                while True:
-                    try:
-                        subkey_name = winreg.EnumKey(key, i)
-                        subkey = winreg.OpenKey(key, subkey_name)
-                        
-                        try:
-                            # Gerätename und Beschreibung abrufen
-                            device_name = winreg.QueryValueEx(subkey, "DeviceDesc")[0]
-                            device_info = {
-                                "name": device_name,
-                                "description": device_name,
-                                "device_id": subkey_name,
-                                "manufacturer": "",
-                                "status": "OK",
-                                "is_connected": True,
-                                "device_type": "USB Device",
-                                "usb_version": "USB 2.0/3.0",
-                                "product_id": "",
-                                "vendor_id": "",
-                                "serial_number": "",
-                                "driver": ""
-                            }
-                            devices.append(device_info)
-                        except:
-                            pass
-                        finally:
-                            winreg.CloseKey(subkey)
-                        i += 1
-                    except WindowsError:
-                        break
-                winreg.CloseKey(key)
-            except:
-                pass
-            
+                
+        except Exception as e:
+            print(f"   ❌ WMI-Zugriff fehlgeschlagen: {e}")
+        
+        print(f"   📊 {len(devices)} WMI-USB-Geräte gefunden")
         return devices
     
     @staticmethod
@@ -641,4 +541,195 @@ class PlatformUtils:
         except FileNotFoundError:
             pass
             
+        return devices
+    
+    @staticmethod
+    def _get_windows_usb_devices_registry() -> List[Dict[str, Any]]:
+        """Ermittelt USB-Geräte über die Windows-Registry."""
+        devices = []
+        
+        try:
+            import winreg
+            print("   🔍 Durchsuche Windows Registry nach USB-Geräten...")
+            
+            # USB-Geräte aus verschiedenen Registry-Pfaden
+            registry_paths = [
+                r"SYSTEM\CurrentControlSet\Enum\USB",
+                r"SYSTEM\CurrentControlSet\Enum\USBSTOR", 
+                r"SYSTEM\CurrentControlSet\Enum\HID"
+            ]
+            
+            for registry_path in registry_paths:
+                try:
+                    print(f"   🔍 Durchsuche {registry_path}...")
+                    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, registry_path)
+                    
+                    # Alle USB-Geräte-Schlüssel auflisten
+                    i = 0
+                    while True:
+                        try:
+                            device_key_name = winreg.EnumKey(key, i)
+                            print(f"   🔍 Gefunden: {device_key_name}")
+                            
+                            # Device-Subkeys durchgehen
+                            device_key = winreg.OpenKey(key, device_key_name)
+                            j = 0
+                            while True:
+                                try:
+                                    instance_key_name = winreg.EnumKey(device_key, j)
+                                    instance_key = winreg.OpenKey(device_key, instance_key_name)
+                                    
+                                    try:
+                                        # Geräteinformationen abrufen
+                                        device_desc = ""
+                                        friendly_name = ""
+                                        manufacturer = ""
+                                        
+                                        try:
+                                            device_desc = winreg.QueryValueEx(instance_key, "DeviceDesc")[0]
+                                            if ";" in device_desc:
+                                                device_desc = device_desc.split(";")[-1]
+                                        except:
+                                            pass
+                                            
+                                        try:
+                                            friendly_name = winreg.QueryValueEx(instance_key, "FriendlyName")[0]
+                                        except:
+                                            pass
+                                            
+                                        try:
+                                            manufacturer = winreg.QueryValueEx(instance_key, "Mfg")[0]
+                                            if ";" in manufacturer:
+                                                manufacturer = manufacturer.split(";")[-1]
+                                        except:
+                                            pass
+                                        
+                                        # Gerätename bestimmen
+                                        device_name = friendly_name or device_desc or f"USB-Gerät ({device_key_name})"
+                                        
+                                        # VID/PID aus Schlüsselname extrahieren
+                                        vendor_id = ""
+                                        product_id = ""
+                                        if "VID_" in device_key_name and "PID_" in device_key_name:
+                                            vid_match = re.search(r"VID_([A-F0-9]{4})", device_key_name)
+                                            pid_match = re.search(r"PID_([A-F0-9]{4})", device_key_name)
+                                            if vid_match:
+                                                vendor_id = vid_match.group(1)
+                                            if pid_match:
+                                                product_id = pid_match.group(1)
+                                        
+                                        # Gerätetyp bestimmen
+                                        device_type = "USB Device"
+                                        device_name_lower = device_name.lower()
+                                        if "keyboard" in device_name_lower or "tastatur" in device_name_lower:
+                                            device_type = "Keyboard"
+                                        elif "mouse" in device_name_lower or "maus" in device_name_lower:
+                                            device_type = "Mouse"
+                                        elif "audio" in device_name_lower or "sound" in device_name_lower:
+                                            device_type = "Audio Device"
+                                        elif "storage" in device_name_lower or "disk" in device_name_lower or "drive" in device_name_lower:
+                                            device_type = "Storage"
+                                        elif "hub" in device_name_lower:
+                                            device_type = "USB Hub"
+                                        elif "hid" in registry_path.lower():
+                                            device_type = "HID Device"
+                                        
+                                        device_info = {
+                                            "name": device_name,
+                                            "description": device_desc,
+                                            "device_id": f"{device_key_name}\\{instance_key_name}",
+                                            "manufacturer": manufacturer,
+                                            "status": "OK",
+                                            "is_connected": True,
+                                            "device_type": device_type,
+                                            "usb_version": "USB 2.0/3.0",
+                                            "product_id": product_id,
+                                            "vendor_id": vendor_id,
+                                            "serial_number": instance_key_name,
+                                            "driver": device_name,
+                                            "power_consumption": "Standard",
+                                            "max_power": "500 mA",
+                                            "current_required": "Unknown",
+                                            "current_available": "500 mA",
+                                            "transfer_speed": "Unknown",
+                                            "max_transfer_speed": "480 Mb/s",
+                                            "device_class": "Unknown",
+                                            "device_subclass": "",
+                                            "device_protocol": ""
+                                        }
+                                        
+                                        devices.append(device_info)
+                                        print(f"   ✅ Registry-USB-Gerät gefunden: {device_name}")
+                                        
+                                    finally:
+                                        winreg.CloseKey(instance_key)
+                                    
+                                    j += 1
+                                except WindowsError:
+                                    break
+                            
+                            winreg.CloseKey(device_key)
+                            i += 1
+                        except WindowsError:
+                            break
+                    
+                    winreg.CloseKey(key)
+                    
+                except Exception as e:
+                    print(f"   ⚠️ Fehler bei Registry-Pfad {registry_path}: {e}")
+                    continue
+                    
+        except Exception as e:
+            print(f"   ❌ Registry-Zugriff fehlgeschlagen: {e}")
+        
+        print(f"   📊 {len(devices)} Geräte aus Registry gefunden")
+        return devices
+    
+    @staticmethod
+    def _get_windows_usb_devices_com_ports() -> List[Dict[str, Any]]:
+        """Ermittelt USB-Geräte über COM-Ports."""
+        devices = []
+        
+        try:
+            import serial.tools.list_ports
+            print("   🔍 Durchsuche COM-Ports nach USB-Geräten...")
+            
+            ports = serial.tools.list_ports.comports()
+            
+            for port_info in ports:
+                # Nur USB-basierte COM-Ports
+                if port_info.vid is not None and port_info.pid is not None:
+                    device_name = f"{port_info.description} ({port_info.device})"
+                    
+                    device_info = {
+                        "name": device_name,
+                        "description": port_info.description or "",
+                        "device_id": f"USB\\VID_{port_info.vid:04X}&PID_{port_info.pid:04X}\\{port_info.serial_number or 'Unknown'}",
+                        "manufacturer": port_info.manufacturer or "",
+                        "status": "OK",
+                        "is_connected": True,
+                        "device_type": "USB Serial Device",
+                        "usb_version": "USB 2.0",
+                        "product_id": f"{port_info.pid:04X}",
+                        "vendor_id": f"{port_info.vid:04X}",
+                        "serial_number": port_info.serial_number or "",
+                        "driver": port_info.description or "",
+                        "power_consumption": "Standard",
+                        "max_power": "500 mA",
+                        "current_required": "Unknown",
+                        "current_available": "500 mA",
+                        "transfer_speed": "Unknown",
+                        "max_transfer_speed": "480 Mb/s",
+                        "device_class": "Communication Device",
+                        "device_subclass": "Serial",
+                        "device_protocol": "USB"
+                    }
+                    
+                    devices.append(device_info)
+                    print(f"   ✅ USB-COM-Port gefunden: {device_name}")
+                    
+        except Exception as e:
+            print(f"   ❌ COM-Port-Zugriff fehlgeschlagen: {e}")
+        
+        print(f"   📊 {len(devices)} USB-COM-Ports gefunden")
         return devices

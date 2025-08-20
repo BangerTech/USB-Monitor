@@ -3,24 +3,13 @@ name: Build USB-Monitor (Windows & macOS)
 on:
   push:
     branches: ["main", "master"]
-    tags: ["v*", "release-*", "*.*.*"]
+    tags: ["v*"]
   pull_request:
     branches: ["main", "master"]
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "Tag-Name für Release (z.B. v1.0.0)"
-        required: false
-        default: ""
-  release:
-    types: [published]
 
 permissions:
   contents: write
-
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   build-windows:
@@ -88,7 +77,7 @@ jobs:
           path: USB-Monitor-macOS.zip
 
   release:
-    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
@@ -107,12 +96,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.release_tag != '' && github.event.inputs.release_tag || github.ref_name }}
-          name: ${{ github.event.inputs.release_tag != '' && github.event.inputs.release_tag || github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           files: |
             artifacts/USB-Monitor-Windows.zip
             artifacts/USB-Monitor-macOS.zip
-        permissions:
-          contents: write
 
 

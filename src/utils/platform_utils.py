@@ -253,18 +253,28 @@ class PlatformUtils:
             import wmi
             import pythoncom
             
+            print("   ✅ WMI und pythoncom verfügbar")
+            
             # COM initialisieren
             pythoncom.CoInitialize()
+            print("   ✅ COM initialisiert")
             
             try:
                 c = wmi.WMI()
+                print("   ✅ WMI-Verbindung hergestellt")
                 
                 # Methode 1: Win32_USBControllerDevice (ursprüngliche Methode)
-                for device in c.Win32_USBControllerDevice():
+                print("   🔍 Suche nach Win32_USBControllerDevice...")
+                controller_devices = list(c.Win32_USBControllerDevice())
+                print(f"   📊 {len(controller_devices)} USB-Controller-Geräte gefunden")
+                
+                for device in controller_devices:
                     try:
                         # Das angeschlossene Gerät abrufen
                         dependent = device.Dependent
                         if dependent:
+                            print(f"   🔍 Verarbeite abhängiges Gerät: {dependent.Name}")
+                            
                             device_info = {
                                 "name": dependent.Name or "Unbekannt",
                                 "description": dependent.Description or "",
@@ -308,14 +318,23 @@ class PlatformUtils:
                                         device_info["serial_number"] = parts[2]
                             
                             devices.append(device_info)
+                            print(f"   ✅ USB-Gerät hinzugefügt: {device_info['name']}")
                     except Exception as e:
+                        print(f"   ❌ Fehler bei USB-Controller-Gerät: {e}")
                         # Einzelne Geräte überspringen, wenn Fehler auftreten
                         continue
                 
                 # Methode 2: Win32_PnPEntity für zusätzliche USB-Geräte
-                for device in c.Win32_PnPEntity():
+                print("   🔍 Suche nach Win32_PnPEntity USB-Geräten...")
+                pnp_devices = list(c.Win32_PnPEntity())
+                print(f"   📊 {len(pnp_devices)} PnP-Geräte gefunden")
+                
+                usb_pnp_count = 0
+                for device in pnp_devices:
                     try:
                         if device.DeviceID and "USB" in device.DeviceID:
+                            usb_pnp_count += 1
+                            print(f"   🔍 USB PnP-Gerät gefunden: {device.Name}")
                             # Prüfe, ob das Gerät bereits hinzugefügt wurde
                             if not any(d["device_id"] == device.DeviceID for d in devices):
                                 device_info = {
@@ -374,16 +393,23 @@ class PlatformUtils:
                                     device_info["device_type"] = "Controller"
                                 
                                 devices.append(device_info)
+                                print(f"   ✅ USB PnP-Gerät hinzugefügt: {device_info['name']} ({device_info['device_type']})")
                     except Exception as e:
+                        print(f"   ❌ Fehler bei PnP-Gerät: {e}")
                         continue
+                
+                print(f"   📊 {usb_pnp_count} USB PnP-Geräte gefunden")
                         
             finally:
                 pythoncom.CoUninitialize()
+                print("   ✅ COM freigegeben")
                     
-        except ImportError:
+        except ImportError as e:
+            print(f"   ❌ WMI nicht verfügbar: {e}")
             # Fallback: Registry abfragen
             try:
                 import winreg
+                print("   🔍 Verwende Registry-Fallback...")
                 # USB-Geräte aus der Registry abrufen
                 key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
                                    r"SYSTEM\CurrentControlSet\Enum\USB")

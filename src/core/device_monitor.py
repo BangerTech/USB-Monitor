@@ -253,42 +253,23 @@ class DeviceMonitor:
         devices = []
         
         try:
-            import subprocess
-            import re
+            # PlatformUtils verwenden, da es bereits funktioniert
+            raw_devices = PlatformUtils.get_usb_devices()
             
-            # System Profiler verwenden
-            result = subprocess.run(["system_profiler", "SPUSBDataType"], 
-                                  capture_output=True, text=True, check=True)
-            
-            lines = result.stdout.split("\n")
-            current_device = {}
-            
-            for line in lines:
-                line = line.strip()
-                
-                if line.startswith("Product ID:"):
-                    if current_device:
-                        devices.append(self._create_macos_device(current_device))
-                    current_device = {"product_id": line.split(":", 1)[1].strip()}
-                    
-                elif line.startswith("Vendor ID:"):
-                    current_device["vendor_id"] = line.split(":", 1)[1].strip()
-                    
-                elif line.startswith("Version:"):
-                    current_device["version"] = line.split(":", 1)[1].strip()
-                    
-                elif line.startswith("Serial Number:"):
-                    current_device["serial_number"] = line.split(":", 1)[1].strip()
-                    
-                elif line.startswith("Manufacturer:"):
-                    current_device["manufacturer"] = line.split(":", 1)[1].strip()
-                    
-                elif line.startswith("Location ID:"):
-                    current_device["location_id"] = line.split(":", 1)[1].strip()
-                    
-            # Letztes Gerät hinzufügen
-            if current_device:
-                devices.append(self._create_macos_device(current_device))
+            for raw_device in raw_devices:
+                usb_device = USBDevice(
+                    name=raw_device.get("name", "Unknown USB Device"),
+                    description=raw_device.get("description", ""),
+                    device_id=raw_device.get("device_id", ""),
+                    manufacturer=raw_device.get("manufacturer", ""),
+                    product_id=raw_device.get("product_id", ""),
+                    vendor_id=raw_device.get("vendor_id", ""),
+                    serial_number=raw_device.get("serial_number", ""),
+                    device_type=raw_device.get("device_type", "USB Device"),
+                    usb_version=raw_device.get("usb_version", ""),
+                    is_connected=raw_device.get("is_connected", True)
+                )
+                devices.append(usb_device)
                 
         except Exception as e:
             self.logger.error(f"Fehler beim Abrufen der macOS-USB-Geräte: {e}")

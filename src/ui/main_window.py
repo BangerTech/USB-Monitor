@@ -9,7 +9,7 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QVBoxLayout, QHBoxLayout, QWidget,
     QMenuBar, QMenu, QToolBar, QStatusBar, QMessageBox, QFileDialog,
-    QSplitter, QLabel, QFrame, QApplication
+    QSplitter, QLabel, QFrame, QApplication, QCheckBox, QComboBox
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QSettings
 from PyQt6.QtGui import QIcon, QKeySequence, QFont, QPixmap, QAction
@@ -60,9 +60,8 @@ class MainWindow(QMainWindow):
         # UI erstellen
         self._create_ui()
         
-        # Menüs und Toolbars
+        # Menüs und Statusbar
         self._create_menus()
-        self._create_toolbar()
         self._create_statusbar()
         
         # Signale verbinden
@@ -72,7 +71,7 @@ class MainWindow(QMainWindow):
         self._start_monitoring()
         
         # Status-Timer starten
-        self.status_timer.start(1000)  # Jede Sekunde aktualisieren
+        self.status_timer.start(5000)  # Alle 5 Sekunden aktualisieren
         
         # Fenster-Einstellungen wiederherstellen
         self._restore_window_state()
@@ -252,42 +251,8 @@ class MainWindow(QMainWindow):
     
     def _create_toolbar(self) -> None:
         """Erstellt die Toolbar."""
-        toolbar = QToolBar()
-        toolbar.setMovable(True)
-        toolbar.setFloatable(False)
-        self.addToolBar(toolbar)
-        
-        # Aktualisieren-Button
-        refresh_action = QAction("Aktualisieren", self)
-        refresh_action.setIcon(QIcon("assets/icons/refresh.png"))
-        refresh_action.setToolTip("Alle Daten aktualisieren (F5)")
-        refresh_action.triggered.connect(self._refresh_all)
-        toolbar.addAction(refresh_action)
-        
-        toolbar.addSeparator()
-        
-        # USB-Geräte-Button
-        devices_action = QAction("USB-Geräte", self)
-        devices_action.setIcon(QIcon("assets/icons/usb.png"))
-        devices_action.setToolTip("USB-Geräte anzeigen")
-        devices_action.triggered.connect(lambda: self.tab_widget.setCurrentIndex(0))
-        toolbar.addAction(devices_action)
-        
-        # COM-Ports-Button
-        ports_action = QAction("COM-Ports", self)
-        ports_action.setIcon(QIcon("assets/icons/port.png"))
-        ports_action.setToolTip("COM-Ports anzeigen")
-        ports_action.triggered.connect(lambda: self.tab_widget.setCurrentIndex(1))
-        toolbar.addAction(ports_action)
-        
-        toolbar.addSeparator()
-        
-        # Export-Button
-        export_action = QAction("Exportieren", self)
-        export_action.setIcon(QIcon("assets/icons/export.png"))
-        export_action.setToolTip("Daten exportieren")
-        export_action.triggered.connect(self._export_all)
-        toolbar.addAction(export_action)
+        # Toolbar entfernt - nur noch Tab-Navigation
+        pass
     
     def _create_statusbar(self) -> None:
         """Erstellt die Statusleiste."""

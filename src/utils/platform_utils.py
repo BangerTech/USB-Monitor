@@ -351,34 +351,107 @@ class PlatformUtils:
                                   capture_output=True, text=True, check=True)
             
             lines = result.stdout.split("\n")
-            current_device = {}
+            
+            # Einfache Methode: Alle Zeilen mit Product ID und Vendor ID finden
+            product_lines = []
+            vendor_lines = []
             
             for line in lines:
                 line = line.strip()
-                
                 if line.startswith("Product ID:"):
-                    if current_device:
-                        devices.append(current_device)
-                    current_device = {"product_id": line.split(":", 1)[1].strip()}
-                    
+                    product_lines.append(line)
                 elif line.startswith("Vendor ID:"):
-                    current_device["vendor_id"] = line.split(":", 1)[1].strip()
-                    
-                elif line.startswith("Version:"):
-                    current_device["version"] = line.split(":", 1)[1].strip()
-                    
-                elif line.startswith("Serial Number:"):
-                    current_device["serial_number"] = line.split(":", 1)[1].strip()
-                    
-                elif line.startswith("Manufacturer:"):
-                    current_device["manufacturer"] = line.split(":", 1)[1].strip()
-                    
-                elif line.startswith("Location ID:"):
-                    current_device["location_id"] = line.split(":", 1)[1].strip()
-                    
-            # Letztes Gerät hinzufügen
-            if current_device:
-                devices.append(current_device)
+                    vendor_lines.append(line)
+            
+            # Alle Geräte mit Product ID und Vendor ID erstellen
+            for i in range(min(len(product_lines), len(vendor_lines))):
+                product_id = product_lines[i].split(":", 1)[1].strip()
+                vendor_id = vendor_lines[i].split(":", 1)[1].strip()
+                
+                # Vendor ID bereinigen (nur Hex-Code)
+                if "(" in vendor_id:
+                    vendor_id = vendor_id.split("(")[0].strip()
+                
+                # Echten Gerätenamen und weitere Informationen extrahieren
+                device_name = f"USB Device {i+1}"
+                manufacturer = "Unknown"
+                usb_version = "USB 2.0/3.0"
+                serial_number = ""
+                speed = ""
+                
+                # Versuche, alle Geräteinformationen zu finden
+                for j, line in enumerate(lines):
+                    if line.strip().startswith("Product ID:") and line.strip().endswith(product_id):
+                        # Schaue nach oben nach dem Gerätenamen (nur 1-5 Zeilen)
+                        for k in range(j-1, max(0, j-6), -1):
+                            potential_line = lines[k].strip()
+                            if potential_line and not potential_line.startswith(("Product ID:", "Vendor ID:", "Version:", "Speed:", "Manufacturer:", "Location ID:", "PCI Vendor ID:", "PCI Device ID:", "PCI Revision ID:", "Current Available", "Current Required", "Extra Operating", "Serial Number:")):
+                                # Prüfe, ob es ein Gerätename ist (endet mit ":")
+                                if ":" in potential_line and potential_line.endswith(":"):
+                                    candidate_name = potential_line.rstrip(":")
+                                    # Erlaube auch "Controller" für Bluetooth-Geräte, aber filtere Hubs
+                                    if not any(skip in candidate_name.lower() for skip in ["hub", "host", "bus", "built-in"]):
+                                        device_name = candidate_name
+                                        break
+                        
+                        # Schaue nach unten nach weiteren Informationen (5-10 Zeilen)
+                        for k in range(j+1, min(len(lines), j+10)):
+                            line_content = lines[k].strip()
+                            if line_content.startswith("Manufacturer:"):
+                                manufacturer = line_content.split(":", 1)[1].strip()
+                            elif line_content.startswith("Version:"):
+                                usb_version = line_content.split(":", 1)[1].strip()
+                            elif line_content.startswith("Serial Number:"):
+                                serial_number = line_content.split(":", 1)[1].strip()
+                            elif line_content.startswith("Speed:"):
+                                speed = line_content.split(":", 1)[1].strip()
+                                # USB-Version aus Speed ableiten
+                                if "5 Gb/s" in speed or "10 Gb/s" in speed:
+                                    usb_version = f"USB 3.x ({speed})"
+                                elif "480 Mb/s" in speed:
+                                    usb_version = f"USB 2.0 ({speed})"
+                                elif "12 Mb/s" in speed or "1.5 Mb/s" in speed:
+                                    usb_version = f"USB 1.x ({speed})"
+                                else:
+                                    usb_version = f"USB ({speed})"
+                        break
+                
+                # Gerätetyp aus Namen ableiten
+                device_type = "USB Device"
+                if "keyboard" in device_name.lower():
+                    device_type = "Keyboard"
+                elif "mouse" in device_name.lower():
+                    device_type = "Mouse"
+                elif "audio" in device_name.lower() or "codec" in device_name.lower():
+                    device_type = "Audio Device"
+                elif "card reader" in device_name.lower():
+                    device_type = "Storage"
+                elif "serial" in device_name.lower():
+                    device_type = "Serial Device"
+                elif "bluetooth" in device_name.lower():
+                    device_type = "Bluetooth Device"
+                elif "controller" in device_name.lower():
+                    device_type = "Controller"
+                elif "lighting" in device_name.lower() or "rgb" in device_name.lower():
+                    device_type = "Lighting Control"
+                elif "composite" in device_name.lower():
+                    device_type = "Composite Device"
+                
+                device = {
+                    "name": device_name,
+                    "description": device_name,
+                    "device_id": f"{vendor_id}_{product_id}",
+                    "manufacturer": manufacturer,
+                    "status": "OK",
+                    "is_connected": True,
+                    "device_type": device_type,
+                    "usb_version": usb_version,
+                    "product_id": product_id,
+                    "vendor_id": vendor_id,
+                    "serial_number": serial_number,
+                    "driver": "macOS"
+                }
+                devices.append(device)
                 
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass

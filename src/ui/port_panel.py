@@ -444,24 +444,8 @@ class PortPanel(QWidget):
         
         button_layout.addStretch()
         
-        # Auto-Refresh-Checkbox
-        self.auto_refresh_cb = QCheckBox("Automatische Aktualisierung")
-        self.auto_refresh_cb.setChecked(self.config.get("auto_refresh", True))
-        self.auto_refresh_cb.toggled.connect(self._on_auto_refresh_changed)
-        button_layout.addWidget(self.auto_refresh_cb)
-        
-        # Aktualisierungsintervall
-        interval_label = QLabel("Intervall (Sek.):")
-        button_layout.addWidget(interval_label)
-        
-        self.interval_combo = QComboBox()
-        self.interval_combo.addItems(["1", "2", "5", "10", "30", "60"])
-        current_interval = str(self.config.get("refresh_interval", 5000) // 1000)
-        index = self.interval_combo.findText(current_interval)
-        if index >= 0:
-            self.interval_combo.setCurrentIndex(index)
-        self.interval_combo.currentTextChanged.connect(self._on_interval_changed)
-        button_layout.addWidget(self.interval_combo)
+        # Automatische Aktualisierung wird vom Hauptfenster gesteuert
+        pass
         
         parent_layout.addLayout(button_layout)
     
@@ -470,9 +454,8 @@ class PortPanel(QWidget):
         # Filter-Änderungen
         self.show_unavailable_cb.toggled.connect(self._on_filter_changed)
         
-        # Auto-Refresh
-        self.auto_refresh_cb.toggled.connect(self._on_auto_refresh_changed)
-        self.interval_combo.currentTextChanged.connect(self._on_interval_changed)
+        # Auto-Refresh wird vom Hauptfenster gesteuert
+        pass
     
     def _start_auto_refresh(self) -> None:
         """Startet die automatische Aktualisierung."""
@@ -494,27 +477,8 @@ class PortPanel(QWidget):
         # TODO: Suchfunktionalität implementieren
         pass
     
-    def _on_auto_refresh_changed(self, enabled: bool) -> None:
-        """Wird aufgerufen, wenn sich die Auto-Refresh-Einstellung ändert."""
-        if enabled:
-            self._start_auto_refresh()
-        else:
-            self._stop_auto_refresh()
-        
-        # Konfiguration speichern
-        self.config.set("auto_refresh", enabled)
-    
-    def _on_interval_changed(self, interval_text: str) -> None:
-        """Wird aufgerufen, wenn sich das Aktualisierungsintervall ändert."""
-        try:
-            interval = int(interval_text) * 1000  # In Millisekunden
-            self.config.set("refresh_interval", interval)
-            
-            if self.refresh_timer.isActive():
-                self.refresh_timer.start(interval)
-                
-        except ValueError:
-            pass
+    # Auto-Refresh wird vom Hauptfenster gesteuert
+    pass
     
     def _auto_refresh(self) -> None:
         """Führt eine automatische Aktualisierung durch."""

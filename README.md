@@ -228,3 +228,4 @@ python build_cross_platform.py
 5. **Automatische Bereinigung** temporärer Build-Dateien
 
 **Das bedeutet: Sie können auf jeder Plattform beide ausführbaren Dateien erstellen!**
+# Test workflow trigger
